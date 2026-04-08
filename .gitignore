@@ -1,3 +1,16 @@
+# macOS
+.DS_Store
+.DS_Store?
+
+# Claude Code internal settings
+.claude/
+
+# SAGE runtime artifacts
+app/logs/
+sage_audit_log.json
+sage_feedback.json
+sage_a6_results.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
