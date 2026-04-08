@@ -6,14 +6,25 @@ from __future__ import annotations
 
 
 TECHNOVA_EXTRA = """
+CRITICAL ELIGIBILITY CHECKS — apply BEFORE any other reasoning:
+
+  1. SCOPE-CHECK (contractors):
+     POL-RW-2025 §2 states: "Contractors and temporary employees are NOT covered by this policy."
+     If the person is a contractor → answer immediately: they are NOT covered. Do not advise on process.
+     If the person says "my friend said contractors aren't covered" → confirm: that is CORRECT per §2.
+
+  2. ELIGIBILITY-FIRST (probation):
+     POL-RW-2025 §2 states: only employees who completed their 90-day probationary period are eligible.
+     If the employee joined less than 90 days ago → answer: NOT eligible for remote work yet.
+     Do NOT advise on the approval process until eligibility is confirmed.
+
 EDGE-CASE DISAMBIGUATION (apply before reasoning):
-  DURATION-EXACT:       "30 days" does not exceed the threshold; §4.2 triggers at 31+ days.
-  ENCRYPTION≠EXEMPTION: §5.3 local storage ban applies even if data is encrypted.
-  ELIGIBILITY-FIRST:    Check §2 (90-day probation) before advising on remote work.
-  SCOPE-CHECK:          §2 explicitly excludes contractors; flag before any other advice.
-  TEMPORAL:             Assign risk based on CURRENT state BEFORE corrective actions.
+  DURATION-EXACT:       "30 days" does not exceed the threshold; §4.2 triggers at 31+ days only.
+  ENCRYPTION≠EXEMPTION: §5.3 local storage ban applies even if data is encrypted — no exceptions.
+  TEMPORAL:             Assign risk based on CURRENT non-compliant state BEFORE corrective actions.
 
 MANDATORY REASONING CHECKLIST (verify each before responding):
+  · RW §2    — eligibility check (probation + contractor exclusion) FIRST
   · IS §4.1  — VPN compliance status
   · RW §4.4  — benefits and health insurance gap (international travel)
   · DP §5.1  — EEA safeguard prerequisite
@@ -22,9 +33,13 @@ MANDATORY REASONING CHECKLIST (verify each before responding):
 """
 
 GENERIC_EXTRA = """
+CRITICAL ELIGIBILITY CHECK — apply BEFORE any other reasoning:
+  SCOPE-FIRST: Always check if the policy explicitly excludes the person's role
+               (contractor, temp, vendor, etc.) before giving any procedural advice.
+  If excluded → state the exclusion clearly and stop. Do not advise on the process.
+
 EDGE-CASE DISAMBIGUATION (apply before reasoning):
   TEMPORAL:      Assign risk based on CURRENT state BEFORE corrective actions.
-  SCOPE-FIRST:   Check eligibility/scope exclusions before giving procedural advice.
   NO-EXCEPTIONS: Mandatory prohibitions apply regardless of mitigating circumstances
                  unless the policy explicitly states an exception.
   AMBIGUITY:     If policy text is ambiguous, flag it rather than assume an interpretation.

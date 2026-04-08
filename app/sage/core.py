@@ -454,18 +454,28 @@ class SAGEPipeline:
         def check_cross_references(scenario: str) -> str:
             """Identify which company policies are triggered by a given scenario."""
             sl, triggered = scenario.lower(), []
-            # Generic keyword triggers — work for any company
-            if any(w in sl for w in ["remote", "work", "office", "international", "travel"]):
+
+            # Meta-questions about the document itself — route directly to search
+            meta_keywords = ["who does", "who is", "when does", "when is", "what is the purpose",
+                             "what does this policy", "scope of", "effective date", "applies to"]
+            if any(kw in sl for kw in meta_keywords):
+                return ("This is a document-level question. Use search_policy to find the "
+                        "Purpose, Scope, or Effective Date sections directly.")
+
+            if any(w in sl for w in ["remote", "work", "office", "international", "travel",
+                                      "home", "probation", "eligible", "eligibility", "contractor"]):
                 triggered.append("Remote-Work-Policy")
-            if any(w in sl for w in ["data", "pii", "privacy", "customer", "eea", "gdpr"]):
+            if any(w in sl for w in ["data", "pii", "privacy", "customer", "eea", "gdpr",
+                                      "retention", "breach", "transfer"]):
                 triggered.append("Data-Privacy-Policy")
             if any(w in sl for w in ["laptop", "vpn", "security", "mfa", "encrypt",
-                                      "byod", "store", "device", "password"]):
+                                      "byod", "store", "device", "password", "mdm"]):
                 triggered.append("Information-Security-Policy")
             if not triggered:
-                return "No cross-policy dependencies identified. Single-policy analysis sufficient."
+                triggered = ["General-Policy"]
             return (f"{len(triggered)} policy area(s) triggered: {', '.join(triggered)}\n"
-                    + ("Run search_policy for each, then synthesise." if len(triggered) >= 2 else ""))
+                    + ("Run search_policy for each, then synthesise." if len(triggered) >= 2 else
+                       "Run search_policy to find relevant sections."))
 
         @tool
         def detect_policy_conflicts(scenario: str) -> str:
@@ -607,6 +617,19 @@ class SAGEPipeline:
         conflicts  = self.conflict_detector.detect(user_query + " " + raw_response)
         confidence = self.confidence_scorer.score(raw_response)
         severity   = self.severity_scorer.score(user_query, raw_response)
+
+        # Override LLM's self-reported scores with our computed ones in the response text
+        # so what's displayed and logged are consistent
+        raw_response = re.sub(
+            r'Confidence Score\s*[:\-]\s*\d{1,3}',
+            f'Confidence Score: {confidence["score"]}',
+            raw_response, flags=re.IGNORECASE
+        )
+        raw_response = re.sub(
+            r'Severity Score\s*[:\-]\s*\d{1,3}',
+            f'Severity Score: {severity["score"]}',
+            raw_response, flags=re.IGNORECASE
+        )
 
         # Audit
         audit_id = self.audit_logger.log(

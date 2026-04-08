@@ -393,10 +393,15 @@ _REPORT_KW = {"report", "audit", "stats", "statistics", "summary",
               "feedback", "show report", "session report"}
 
 _COMPLIANCE_KW = {
-    "policy", "remote", "work", "vpn", "data", "pii", "privacy", "breach",
+    # Policy / document meta-questions
+    "policy", "applies", "apply", "scope", "purpose", "effective", "eligib",
+    "covered", "covers", "who", "when", "what",
+    # Compliance topics
+    "remote", "work", "home", "vpn", "data", "pii", "privacy", "breach",
     "mfa", "byod", "gdpr", "encrypt", "approval", "compliance", "laptop",
     "international", "travel", "retention", "security", "access", "eea",
-    "password", "incident", "training", "contractor", "employee",
+    "password", "incident", "training", "contractor", "employee", "mdm",
+    "probation", "equipment", "reimbursement", "violation", "requirement",
 }
 
 def _is_report_request(q: str) -> bool:
@@ -405,10 +410,12 @@ def _is_report_request(q: str) -> bool:
 
 def _is_out_of_scope(q: str) -> bool:
     ql = q.lower().split()
-    # Single words / greetings are always out of scope
+    # Greetings / single tokens always out of scope
     if len(ql) <= 2:
         return True
-    has_compliance = any(kw in ql for kw in _COMPLIANCE_KW)
+    # Partial-word match so "eligibility" matches "eligib", etc.
+    q_lower = q.lower()
+    has_compliance = any(kw in q_lower for kw in _COMPLIANCE_KW)
     return not has_compliance
 
 
