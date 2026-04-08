@@ -405,8 +405,11 @@ def _is_report_request(q: str) -> bool:
 
 def _is_out_of_scope(q: str) -> bool:
     ql = q.lower().split()
+    # Single words / greetings are always out of scope
+    if len(ql) <= 2:
+        return True
     has_compliance = any(kw in ql for kw in _COMPLIANCE_KW)
-    return not has_compliance and len(q.split()) > 2
+    return not has_compliance
 
 
 # ── Chat history ──────────────────────────────────────────────────────────────

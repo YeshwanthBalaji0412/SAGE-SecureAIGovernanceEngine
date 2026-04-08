@@ -26,7 +26,16 @@ def extract_risk_level(text: str) -> str:
     return m.group(1).capitalize() if m else "Unknown"
 
 def extract_citation_count(text: str) -> int:
-    return len(re.findall(r'(?:POL-[A-Z]+-\d{4}|policy)[,\s]+[Ss]ection\s+\d', text))
+    # Match both POL-XX-XXXX and plain "PolicyName, Section X.X" formats
+    patterns = [
+        r'POL-[A-Z]+-\d{4}[,\s]+[Ss]ection\s+[\d.]+',
+        r'(?:Remote-Work|Data-Privacy|Info(?:rmation)?-Security|BYOD|IS|DP|RW)[- ]Policy[,\s]+[Ss]ection\s+[\d.]+',
+        r'[Ss]ection\s+\d+\.\d+\s*[—–-]',
+    ]
+    matches = set()
+    for p in patterns:
+        matches.update(re.findall(p, text))
+    return len(matches)
 
 def extract_score(text: str, label: str) -> Optional[int]:
     m = re.search(rf'{label}\s*Score\s*[:\-]\s*(\d{{1,3}})', text, re.IGNORECASE)
@@ -550,8 +559,14 @@ class SAGEPipeline:
         if use_agent:
             try:
                 agent = self._get_agent()
+                # Build message list with conversation history for multi-turn awareness
+                prior = [
+                    HumanMessage(content=m["content"]) if m["role"] == "user"
+                    else SystemMessage(content=m["content"])
+                    for m in session.get_context()
+                ]
                 result = agent.invoke(
-                    {"messages": [HumanMessage(content=user_query)]},
+                    {"messages": prior + [HumanMessage(content=user_query)]},
                     {"recursion_limit": 15},
                 )
                 raw_response = result["messages"][-1].content
