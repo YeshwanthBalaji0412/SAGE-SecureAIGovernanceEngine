@@ -168,10 +168,18 @@ def load_pipeline(api_key: str, uploaded_files=None, company_name: str = "TechNo
     with st.spinner("Indexing documents into ChromaDB…"):
         if uploaded_files:
             file_data = [(f.read(), f.name) for f in uploaded_files]
-            chunks, lookup, collection = ingest_documents(file_data, api_key)
+            chunks, lookup, collection, validations = ingest_documents(file_data, api_key)
             is_technova = False
+            # Warn about non-policy documents
+            for v in validations:
+                if not v["is_policy"]:
+                    st.warning(
+                        f"⚠️ **{v['filename']}** doesn't look like a policy document "
+                        f"(policy signals found: {v['score']}/{v['total_signals']}). "
+                        "SAGE may not be able to answer compliance questions from it."
+                    )
         else:
-            chunks, lookup, collection = load_technova_demo(api_key)
+            chunks, lookup, collection, _ = load_technova_demo(api_key)
             is_technova = True
 
         corpus_text   = "\n\n".join(c["text"] for c in chunks)

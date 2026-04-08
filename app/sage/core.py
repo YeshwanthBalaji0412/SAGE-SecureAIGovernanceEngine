@@ -5,21 +5,19 @@ Stateless classes; state lives in Streamlit session_state.
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Annotated
+from typing import Annotated, Dict, List, Optional, Sequence, TypedDict
 
 from openai import OpenAI
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langgraph.graph import StateGraph, END
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
-from typing import TypedDict
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -399,26 +397,38 @@ class SAGEPipeline:
         self.collection = collection
         self._agent     = None
 
+    NO_CONTEXT_SIGNAL = "<<NO_RELEVANT_POLICY_CONTENT_FOUND>>"
+
     def _keyword_search(self, query: str, k: int = 5) -> str:
         scored = sorted(
             [(sum(1 for w in query.lower().split() if w in c["text"].lower()), c)
              for c in self.chunks],
             key=lambda x: x[0], reverse=True
         )
-        return "\n\n".join(
+        results = [
             f"[{i+1}] {c['policy_id']} §{c['section']}\n{c['text'][:300]}..."
-            for i, (_, c) in enumerate(scored[:k]) if _ > 0
-        ) or "No relevant sections found."
+            for i, (score, c) in enumerate(scored[:k]) if score > 0
+        ]
+        return "\n\n".join(results) if results else self.NO_CONTEXT_SIGNAL
 
     def _rag_search(self, query: str, k: int = 5) -> str:
         if self.collection is None:
             return self._keyword_search(query, k)
         try:
             res = self.collection.query(query_texts=[query], n_results=k)
+            docs = res["documents"][0]
+            metas = res["metadatas"][0]
+            distances = res.get("distances", [[]])[0]
+            # Filter out chunks with very low relevance (distance > 1.5 means near-random)
+            relevant = [
+                (d, m) for d, m, dist in zip(docs, metas, distances or [0]*len(docs))
+                if dist < 1.5
+            ]
+            if not relevant:
+                return self.NO_CONTEXT_SIGNAL
             return "\n\n".join(
                 f"[{i+1}] {m['policy_id']} §{m['section']}\n{d[:400]}"
-                for i, (d, m) in enumerate(
-                    zip(res["documents"][0], res["metadatas"][0]))
+                for i, (d, m) in enumerate(relevant)
             )
         except Exception:
             return self._keyword_search(query, k)
@@ -510,7 +520,33 @@ class SAGEPipeline:
                 "audit_id": None,
             }
 
-        # L2–L4: Agent or direct call
+        # L2: Grounding gate — check if documents contain anything relevant
+        context = self._rag_search(user_query)
+        if context == self.NO_CONTEXT_SIGNAL:
+            no_info = (
+                "I wasn't able to find any relevant information in the uploaded policy documents "
+                "to answer this question. Please make sure your documents are compliance or policy "
+                "documents that cover this topic."
+            )
+            session.add_turn(user_query, no_info)
+            return {
+                "blocked":               False,
+                "grounded":              False,
+                "response":              no_info,
+                "answer":                no_info,
+                "citations":             [],
+                "risk_level":            "N/A",
+                "reasoning":             "",
+                "severity":              {"score": 0, "band": "N/A", "components": {}},
+                "confidence":            {"score": 0, "band": "N/A", "components": {}},
+                "conflicts":             [],
+                "citation_verification": None,
+                "latency":               round(time.time() - t0, 3),
+                "tokens":                0,
+                "audit_id":              None,
+            }
+
+        # L3–L4: Agent or direct call
         if use_agent:
             try:
                 agent = self._get_agent()
@@ -528,8 +564,12 @@ class SAGEPipeline:
                 raw_response = f"[Agent error: {e}]"
                 tokens = 0
         else:
-            # Direct call with conversation context
-            messages = [{"role": "system", "content": self.system_prompt}]
+            # Direct call — inject retrieved context alongside conversation history
+            grounded_prompt = (
+                self.system_prompt
+                + f"\n\nRELEVANT POLICY SECTIONS FOR THIS QUERY:\n{context}"
+            )
+            messages = [{"role": "system", "content": grounded_prompt}]
             messages.extend(session.get_context())
             messages.append({"role": "user", "content": user_query})
             try:

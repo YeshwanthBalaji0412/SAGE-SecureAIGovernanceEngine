@@ -148,22 +148,53 @@ def build_chromadb_collection(
         return None
 
 
+# ── Document validation ───────────────────────────────────────────────────────
+
+_POLICY_SIGNALS = [
+    r'\bpolicy\b', r'\bpolicies\b', r'\bprocedure\b', r'\bguideline\b',
+    r'\bcompliance\b', r'\bemployee(s)?\b', r'\bmust\b', r'\bshall\b',
+    r'\bprohibited\b', r'\brequired\b', r'\bapproval\b', r'\bsection\s+\d',
+    r'\beffective\s+date\b', r'\bscope\b', r'\bpurpose\b',
+    r'\bviolation\b', r'\bmanagement\b', r'\bauthorization\b',
+]
+
+def validate_policy_document(text: str) -> dict:
+    """
+    Check if a document looks like a policy document.
+    Returns {"is_policy": bool, "score": int, "signals_found": list}.
+    """
+    tl = text.lower()
+    found = [p for p in _POLICY_SIGNALS if re.search(p, tl)]
+    score = len(found)
+    return {
+        "is_policy":     score >= 4,
+        "score":         score,
+        "signals_found": found,
+        "total_signals": len(_POLICY_SIGNALS),
+    }
+
+
 # ── High-level ingestion ──────────────────────────────────────────────────────
 
 def ingest_documents(
     files: List[Tuple[bytes, str]],   # [(file_bytes, filename), ...]
     api_key: str,
-) -> Tuple[List[Dict], Dict[str, str], object]:
+) -> Tuple[List[Dict], Dict[str, str], object, List[dict]]:
     """
     Ingest a list of (file_bytes, filename) tuples.
-    Returns (chunks, section_lookup, chromadb_collection).
+    Returns (chunks, section_lookup, chromadb_collection, validation_results).
     """
     all_chunks: List[Dict] = []
     section_lookup: Dict[str, str] = {}
+    validations: List[dict] = []
 
     for file_bytes, filename in files:
-        text       = extract_text_from_file(file_bytes, filename)
-        policy_id  = _infer_policy_id(text, filename)
+        text        = extract_text_from_file(file_bytes, filename)
+        validation  = validate_policy_document(text)
+        validation["filename"] = filename
+        validations.append(validation)
+
+        policy_id   = _infer_policy_id(text, filename)
         policy_name = Path(filename).stem.replace("-", " ").replace("_", " ").title()
 
         doc_chunks = chunk_text(text, policy_id, policy_name)
@@ -171,7 +202,7 @@ def ingest_documents(
         section_lookup.update(build_section_lookup(text, policy_id))
 
     collection = build_chromadb_collection(all_chunks, api_key)
-    return all_chunks, section_lookup, collection
+    return all_chunks, section_lookup, collection, validations
 
 
 # ── Built-in TechNova demo corpus ─────────────────────────────────────────────
@@ -302,7 +333,7 @@ Section 8: Incident Response
 }
 
 
-def load_technova_demo(api_key: str) -> Tuple[List[Dict], Dict[str, str], object]:
+def load_technova_demo(api_key: str) -> Tuple[List[Dict], Dict[str, str], object, List[dict]]:
     """Load the built-in TechNova demo policy corpus."""
     files = [
         (text.encode("utf-8"), f"{pid}.txt")

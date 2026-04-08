@@ -4,7 +4,6 @@ Works for any company's policy corpus — not hardcoded to TechNova.
 """
 from __future__ import annotations
 
-from typing import List, Dict
 
 TECHNOVA_EXTRA = """
 EDGE-CASE DISAMBIGUATION (apply before reasoning):
@@ -87,8 +86,12 @@ Severity Score:   [0–100] — [component breakdown]
 Confidence Score: [0–100] — [basis for certainty]
 Reasoning:        [2–4 sentences citing specific sections]
 
-CONSTRAINTS:
-  - Every factual claim must cite a specific section.
+HARD CONSTRAINTS — these override everything else:
+  - ONLY use information from the policy documents provided above.
+  - If the documents do not contain enough information to answer, say exactly:
+    "I don't have enough information in the uploaded documents to answer this question."
+    Do NOT use external knowledge, general knowledge, or assumptions.
+  - Every factual claim must cite a specific section from the documents.
   - Never cite sections not present in the policy documents above.
   - Flag ambiguity explicitly; never assume an interpretation.
   - Out-of-scope queries: respond with "This question is outside my policy scope." only.
