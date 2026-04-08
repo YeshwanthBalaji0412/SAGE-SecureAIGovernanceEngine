@@ -62,7 +62,6 @@ def _init():
         "chat_history":      [],
         "audit_logger":      AuditLogger(),
         "feedback_collector":FeedbackCollector(),
-        "pending_feedback":  None,
         "show_audit":        False,
         "use_agent":         True,
     }
@@ -193,7 +192,6 @@ def load_pipeline(api_key: str, uploaded_files=None, company_name: str = "TechNo
         st.session_state.company_name        = company_name
         st.session_state.audit_logger        = pipeline.audit_logger
         st.session_state.feedback_collector  = pipeline.feedback_collector
-        st.session_state.pending_feedback    = None
 
     n_chunks   = len(chunks)
     n_sections = len(lookup)
@@ -290,9 +288,8 @@ with st.sidebar:
     if st.session_state.corpus_loaded:
         st.divider()
         if st.button("🗑️ Clear Chat", use_container_width=True):
-            st.session_state.chat_history   = []
-            st.session_state.session        = SAGEConversationSession()
-            st.session_state.pending_feedback = None
+            st.session_state.chat_history = []
+            st.session_state.session      = SAGEConversationSession()
             st.rerun()
 
     st.divider()
@@ -337,44 +334,85 @@ Citation verification · Audit logging · Severity-weighted risk scoring
     st.stop()
 
 
+# ── Report renderer ───────────────────────────────────────────────────────────
+
+def render_report():
+    """Show audit stats and feedback summary inline in the chat."""
+    stats = st.session_state.audit_logger.stats()
+    fb    = st.session_state.feedback_collector.aggregate()
+
+    if stats.get("total", 0) == 0:
+        st.info("No queries recorded in this session yet.")
+        return
+
+    st.markdown("**Session Report**")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Queries",   stats["total"])
+    c2.metric("Avg Latency",     f"{stats.get('avg_latency','—')}s")
+    c3.metric("Avg Confidence",  f"{stats.get('avg_confidence','—')}/100")
+
+    risk_dist = stats.get("risk_dist", {})
+    if risk_dist:
+        st.markdown("**Risk distribution**")
+        rc = st.columns(len(risk_dist))
+        colors = {"High": "🔴", "Medium": "🟡", "Low": "🟢", "Unknown": "⚪"}
+        for i, (k, v) in enumerate(risk_dist.items()):
+            rc[i].metric(f"{colors.get(k,'⚪')} {k}", v)
+
+    if fb.get("total", 0):
+        st.markdown("**Feedback summary**")
+        fc1, fc2, fc3 = st.columns(3)
+        fc1.metric("Responses Rated", fb["total"])
+        fc2.metric("Overall Score",   f"{fb['overall_avg']}/5")
+        fc3.metric("Recommend Rate",  fb["recommend_rate"])
+        for dim, score in fb.get("dim_avgs", {}).items():
+            st.progress(int(score * 20), text=f"{dim.capitalize()}: {score}/5")
+    else:
+        st.caption("No feedback submitted yet. Ask SAGE to 'rate' a response to log feedback.")
+
+    with st.expander("📋 Recent audit entries"):
+        for e in reversed(st.session_state.audit_logger.recent(10)):
+            st.markdown(
+                f"`{e['entry_id']}` · {e['timestamp'][:19]} · "
+                f"Risk: **{e['risk_level']}** · Conf: {e.get('confidence_score','—')}/100  \n"
+                f"> {e['query'][:80]}…"
+            )
+
+
+# ── Intent helpers ────────────────────────────────────────────────────────────
+
+_REPORT_KW = {"report", "audit", "stats", "statistics", "summary",
+              "feedback", "show report", "session report"}
+
+_COMPLIANCE_KW = {
+    "policy", "remote", "work", "vpn", "data", "pii", "privacy", "breach",
+    "mfa", "byod", "gdpr", "encrypt", "approval", "compliance", "laptop",
+    "international", "travel", "retention", "security", "access", "eea",
+    "password", "incident", "training", "contractor", "employee",
+}
+
+def _is_report_request(q: str) -> bool:
+    ql = q.lower()
+    return any(kw in ql for kw in _REPORT_KW)
+
+def _is_out_of_scope(q: str) -> bool:
+    ql = q.lower().split()
+    has_compliance = any(kw in ql for kw in _COMPLIANCE_KW)
+    return not has_compliance and len(q.split()) > 2
+
+
 # ── Chat history ──────────────────────────────────────────────────────────────
 
 for entry in st.session_state.chat_history:
     if entry["role"] == "user":
         with st.chat_message("user"):
             st.markdown(entry["content"])
+    elif entry.get("type") == "report":
+        with st.chat_message("assistant", avatar="🛡️"):
+            render_report()
     else:
         with st.chat_message("assistant", avatar="🛡️"):
             render_response(entry.get("result", {"response": entry["content"]}))
-
-
-# ── Feedback widget ───────────────────────────────────────────────────────────
-
-if st.session_state.pending_feedback:
-    aid = st.session_state.pending_feedback
-    with st.expander("💬 Rate this response", expanded=True):
-        fc1, fc2, fc3, fc4 = st.columns(4)
-        r_cl = fc1.slider("Clarity",    1, 5, 4, key=f"cl_{aid}")
-        r_ac = fc2.slider("Accuracy",   1, 5, 4, key=f"ac_{aid}")
-        r_us = fc3.slider("Usefulness", 1, 5, 4, key=f"us_{aid}")
-        r_tr = fc4.slider("Trust",      1, 5, 4, key=f"tr_{aid}")
-        comment   = st.text_input("Comment (optional)", key=f"cm_{aid}")
-        recommend = st.checkbox("Would recommend SAGE", value=True, key=f"rc_{aid}")
-        if st.button("Submit Feedback", key=f"sb_{aid}"):
-            last_user_q = next(
-                (e["content"] for e in reversed(st.session_state.chat_history) if e["role"] == "user"),
-                "",
-            )
-            fid = st.session_state.feedback_collector.submit(
-                audit_id=aid,
-                query=last_user_q,
-                ratings={"clarity": r_cl, "accuracy": r_ac, "usefulness": r_us, "trust": r_tr},
-                comment=comment,
-                recommend=recommend,
-            )
-            st.success(f"Thank you! Feedback `{fid}` recorded.")
-            st.session_state.pending_feedback = None
-            st.rerun()
 
 
 # ── Query input ───────────────────────────────────────────────────────────────
@@ -382,52 +420,55 @@ if st.session_state.pending_feedback:
 query = st.chat_input("Ask a compliance question…")
 
 if query and query.strip():
-    pipeline: SAGEPipeline           = st.session_state.pipeline
+    q = query.strip()
+    pipeline: SAGEPipeline            = st.session_state.pipeline
     session:  SAGEConversationSession = st.session_state.session
 
-    st.session_state.chat_history.append({"role": "user", "content": query.strip()})
+    # Add user message
+    st.session_state.chat_history.append({"role": "user", "content": q})
 
     with st.chat_message("user"):
-        st.markdown(query.strip())
+        st.markdown(q)
 
     with st.chat_message("assistant", avatar="🛡️"):
-        with st.spinner("SAGE is reasoning…"):
-            result = pipeline.query(
-                user_query=query.strip(),
-                session=session,
-                use_agent=st.session_state.use_agent,
-            )
-        render_response(result)
 
-    st.session_state.chat_history.append({
-        "role":    "assistant",
-        "content": result.get("response", ""),
-        "result":  result,
-    })
+        # ── Report request ────────────────────────────────────────────────────
+        if _is_report_request(q):
+            render_report()
+            st.session_state.chat_history.append({"role": "assistant", "type": "report"})
 
-    if result.get("audit_id"):
-        st.session_state.pending_feedback = result["audit_id"]
+        # ── Out of scope ──────────────────────────────────────────────────────
+        elif _is_out_of_scope(q):
+            msg = "I'm a compliance assistant — I can only answer questions about your company's policies. Try asking about remote work, data privacy, security requirements, or BYOD rules."
+            st.markdown(msg)
+            st.session_state.chat_history.append({"role": "assistant", "content": msg})
+
+        # ── Compliance query ──────────────────────────────────────────────────
+        else:
+            with st.spinner("Reasoning…"):
+                result = pipeline.query(
+                    user_query=q,
+                    session=session,
+                    use_agent=st.session_state.use_agent,
+                )
+            render_response(result)
+            st.session_state.chat_history.append({
+                "role":    "assistant",
+                "content": result.get("response", ""),
+                "result":  result,
+            })
 
     st.rerun()
 
 
-# ── Audit log panel ───────────────────────────────────────────────────────────
+# ── Audit log panel (sidebar toggle) ─────────────────────────────────────────
 
 if st.session_state.show_audit:
     st.markdown("---")
-    st.markdown("### 📋 Audit Log (last 20 entries)")
-    recent = st.session_state.audit_logger.recent(20)
-    if not recent:
-        st.info("No audit entries yet.")
-    else:
-        for e in reversed(recent):
-            with st.expander(
-                f"`{e['entry_id']}` · {e['timestamp'][:19]} · "
-                f"Risk: {e['risk_level']} · Confidence: {e.get('confidence_score','—')}"
-            ):
-                st.json(e)
-
-    fb_stats = st.session_state.feedback_collector.aggregate()
-    if fb_stats.get("total", 0):
-        st.markdown("### 💬 Feedback Summary")
-        st.json(fb_stats)
+    st.markdown("### 📋 Full Audit Log")
+    for e in reversed(st.session_state.audit_logger.recent(20)):
+        with st.expander(
+            f"`{e['entry_id']}` · {e['timestamp'][:19]} · "
+            f"Risk: {e['risk_level']} · Conf: {e.get('confidence_score','—')}"
+        ):
+            st.json(e)
