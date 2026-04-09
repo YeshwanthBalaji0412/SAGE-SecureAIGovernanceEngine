@@ -26,11 +26,24 @@ def extract_risk_level(text: str) -> str:
     return m.group(1).capitalize() if m else "Unknown"
 
 def extract_citation_count(text: str) -> int:
-    # Match both POL-XX-XXXX and plain "PolicyName, Section X.X" formats
+    """
+    Count citations in a response regardless of document format.
+    Works for structured policies (POL-XX-XXXX, Section X.X) and
+    unstructured/presentation documents (named policies, bullet citations).
+    """
+    # Strategy 1: count lines in the Citations block (works for any format)
+    citations_block = extract_field(text, "Citations")
+    if citations_block:
+        lines = [ln.strip() for ln in citations_block.splitlines()
+                 if ln.strip() and not ln.strip().startswith("#")]
+        if lines:
+            return len(lines)
+
+    # Strategy 2: pattern-based fallback for inline citations
     patterns = [
-        r'POL-[A-Z]+-\d{4}[,\s]+[Ss]ection\s+[\d.]+',
-        r'(?:Remote-Work|Data-Privacy|Info(?:rmation)?-Security|BYOD|IS|DP|RW)[- ]Policy[,\s]+[Ss]ection\s+[\d.]+',
-        r'[Ss]ection\s+\d+\.\d+\s*[—–-]',
+        r'POL-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{4}',          # POL-RW-NOVA-2025
+        r'[Ss]ection\s+\d+[\d.]*\s*[—–\-]',              # Section 3.2 —
+        r'[Aa]rticle\s+\d+[\d.]*',                        # Article 5
     ]
     matches = set()
     for p in patterns:
@@ -435,21 +448,31 @@ class SAGEPipeline:
             metas = res["metadatas"][0]
             distances = res.get("distances", [[]])[0]
 
-            # Semantic results: filter near-random hits (cosine distance > 1.5)
+            # Semantic results: filter near-random hits
+            # Use 1.8 threshold (slide/presentation docs have higher distances than
+            # structured policies — 1.5 was too strict and caused false NO_CONTEXT)
             semantic = [
                 (dist, doc, meta)
                 for doc, meta, dist in zip(docs, metas, distances or [0] * len(docs))
-                if dist < 1.5
+                if dist < 1.8
             ]
 
-            # Keyword results for the same query (as supplemental signal)
+            # Keyword results — always include top matches regardless of score
+            # so factual queries (hotline number, contact details) are never lost
+            query_words = [w for w in query.lower().split() if len(w) > 2]
             kw_scored = sorted(
-                [(sum(1 for w in query.lower().split() if w in c["text"].lower()), c)
+                [(sum(1 for w in query_words if w in c["text"].lower()), c)
                  for c in self.chunks],
                 key=lambda x: x[0], reverse=True
             )
+            # Include top-k keyword results always (score > 0), plus top-3 as
+            # last-resort fallback even if no words match (prevents grounding-gate
+            # false positives on short/fragmented slide-deck documents)
             keyword_top = [(0.0, c["text"], {"policy_id": c["policy_id"], "section": c["section"]})
                            for score, c in kw_scored[:k] if score > 0]
+            if not keyword_top and self.chunks:
+                keyword_top = [(0.0, c["text"], {"policy_id": c["policy_id"], "section": c["section"]})
+                               for _, c in kw_scored[:3]]
 
             # Merge: semantic first, then keyword; deduplicate by (policy_id, section)
             seen: set = set()

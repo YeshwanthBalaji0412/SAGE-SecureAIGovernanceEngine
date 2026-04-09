@@ -291,22 +291,37 @@ def _score_bar(value: int, color: str) -> str:
         f'background:{color};"></div></div>'
     )
 
-_REPORT_KW = {"report", "audit", "stats", "statistics", "summary",
-              "feedback", "show report", "session report"}
+# Exact-match phrases that mean the user wants the session report dashboard.
+# Single words like "report" or "audit" only trigger when the WHOLE query is
+# that word (or a short phrase) — not when they appear inside a policy question.
+_REPORT_EXACT = {"report", "audit", "stats", "statistics", "summary", "feedback"}
+_REPORT_PHRASES = {"show report", "session report", "show stats", "show summary",
+                   "show audit", "view report", "get report", "my report",
+                   "download report", "session stats"}
 
+# Domain-specific compliance terms only — no generic question words (who/what/when)
+# so that casual/nonsensical queries like "what am i doing to you" are caught.
 _COMPLIANCE_KW = {
-    "policy", "applies", "apply", "scope", "purpose", "effective", "eligib",
-    "covered", "covers", "who", "when", "what",
-    "remote", "work", "home", "vpn", "data", "pii", "privacy", "breach",
+    "policy", "policies", "applies", "apply", "scope", "eligible", "eligib",
+    "covered", "covers", "effective", "section", "rule", "regulation",
+    "remote", "work", "vpn", "data", "pii", "privacy", "breach", "incident",
     "mfa", "byod", "gdpr", "encrypt", "approval", "compliance", "laptop",
     "international", "travel", "retention", "security", "access", "eea",
-    "password", "incident", "training", "contractor", "employee", "mdm",
-    "probation", "equipment", "reimbursement", "violation", "requirement",
+    "password", "training", "contractor", "employee", "mdm", "probation",
+    "equipment", "reimbursement", "violation", "requirement", "report to",
+    "harass", "discriminat", "termination", "disciplin", "conduct", "leave",
+    "benefit", "insurance", "overtime", "exempt", "salary", "pto", "holiday",
+    "handbook", "procedure", "guideline", "prohibited", "mandatory", "must",
+    "shall", "authorized", "permit", "waiver", "exception", "consent",
 }
 
 def _is_report_request(q: str) -> bool:
-    ql = q.lower()
-    return any(kw in ql for kw in _REPORT_KW)
+    ql = q.strip().lower()
+    # Trigger only when the entire query IS a report keyword (e.g. user types just "report")
+    # OR matches a known multi-word report phrase — never when "report" appears mid-sentence.
+    if ql in _REPORT_EXACT:
+        return True
+    return any(phrase in ql for phrase in _REPORT_PHRASES)
 
 def _is_out_of_scope(q: str) -> bool:
     words = q.lower().split()

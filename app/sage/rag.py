@@ -46,52 +46,81 @@ def extract_text_from_file(file_bytes: bytes, filename: str) -> str:
 
 def _infer_policy_id(text: str, filename: str) -> str:
     """Guess a short policy ID from content or filename."""
-    m = re.search(r'\b(POL-[A-Z]+-\d{4})\b', text)
+    m = _POL_ID_RE.search(text)
     if m:
         return m.group(1)
     stem = Path(filename).stem.upper()[:20].replace(" ", "-")
     return stem or "POL-UNKNOWN"
 
 
+# Matches policy IDs with any number of segments: POL-XX-2025, POL-RW-NOVA-2025, etc.
+_POL_ID_RE = re.compile(r'\b(POL-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{4})\b')
+
+
 def chunk_text(text: str, policy_id: str, policy_name: str) -> List[Dict]:
     """
     Split a policy document into section-level chunks.
-    Falls back to paragraph-level chunking for non-structured documents.
+    Tracks policy ID changes within the document so multi-policy files
+    (several POL-XX-XXXX identifiers in one file) assign the correct ID
+    to each chunk. Falls back to paragraph-level chunking for unstructured docs.
     """
     chunks = []
 
-    # Strategy 1: split on "Section N:" / "Section N.N:" headers
-    section_splits = re.split(r'(?=(?:Section|SECTION|Article|ARTICLE)\s+\d[\d.]*\s*[:\-—])', text)
+    # Strategy 1: split on known header patterns (tried in order)
+    # Covers: "Section 3.1 —", "Article 2 —", "3.1 Title", "I. Title", "HEADING\n"
+    header_patterns = [
+        r'(?=(?:Section|SECTION|Article|ARTICLE)\s+\d[\d.]*\s*[:\-—])',   # Section 3.1 —
+        r'(?=\n\s*\d+\.\d+\s+[A-Z])',                                      # 3.1 Title
+        r'(?=\n\s*(?:I{1,3}|IV|VI{0,3}|IX|X{0,3})\.\s+\w)',               # Roman: II. Title
+        r'(?=\n[A-Z][A-Z\s]{4,}\n)',                                        # ALL CAPS HEADER
+    ]
+    section_splits = None
+    for pat in header_patterns:
+        splits = re.split(pat, text)
+        if len(splits) > 2:
+            section_splits = splits
+            break
 
-    if len(section_splits) > 2:
+    if section_splits and len(section_splits) > 2:
+        current_pid = policy_id          # tracks the active policy ID
         for idx, sec in enumerate(section_splits):
             sec = sec.strip()
             if len(sec) < 40:
                 continue
+            # If a new POL-XX-XXXX appears at the start of this chunk, switch to it
+            pid_m = _POL_ID_RE.search(sec[:300])
+            if pid_m:
+                current_pid = pid_m.group(1)
             m = re.match(r'(?:Section|SECTION|Article|ARTICLE)\s+(\d[\d.]*)', sec)
             section_num = m.group(1) if m else str(idx)
             chunks.append({
                 "text":        sec,
-                "policy_id":   policy_id,
+                "policy_id":   current_pid,
                 "policy_name": policy_name,
                 "section":     section_num,
-                "chunk_id":    f"{policy_id}-S{section_num}",
+                "chunk_id":    f"{current_pid}-S{section_num}",
             })
         return chunks
 
-    # Strategy 2: paragraph-level chunking (300-word windows, 50-word overlap)
+    # Strategy 2: paragraph-level chunking — use smaller windows (150 words)
+    # for slide-deck / short-bullet documents so each chunk stays focused
     words = text.split()
-    WIN, OVERLAP = 300, 50
+    # Smaller window for slide/bullet docs (avg slide ≈ 50 words → 150 = ~3 slides per chunk)
+    WIN, OVERLAP = 150, 30
+    current_pid = policy_id
     for i, start in enumerate(range(0, len(words), WIN - OVERLAP)):
         segment = " ".join(words[start: start + WIN])
         if len(segment) < 40:
             continue
+        pid_m = _POL_ID_RE.search(segment[:200])
+        if pid_m:
+            current_pid = pid_m.group(1)
         chunks.append({
             "text":        segment,
-            "policy_id":   policy_id,
+            "policy_id":   current_pid,
             "policy_name": policy_name,
             "section":     str(i),
-            "chunk_id":    f"{policy_id}-P{i}",
+            "chunk_id":    f"{current_pid}-P{i}",
         })
 
     return chunks
@@ -102,14 +131,27 @@ def chunk_text(text: str, policy_id: str, policy_name: str) -> List[Dict]:
 def build_section_lookup(text: str, policy_id: str) -> Dict[str, str]:
     """
     Build a {policy_id§X.X → line_text} index from raw policy text.
+    Tracks policy ID changes inline so multi-policy documents map each
+    section number to the correct policy ID.
     Used by CitationVerifier to check groundedness of cited sections.
     """
     lookup: Dict[str, str] = {}
+    current_pid = policy_id
     for line in text.split("\n"):
-        m = re.match(r'^\s*(\d+\.\d+)', line.strip())
+        # Update current policy ID if a new one appears on this line
+        pid_m = _POL_ID_RE.search(line)
+        if pid_m:
+            current_pid = pid_m.group(1)
+        stripped = line.strip()
+        # Match "Section X.X" or "X.X" at line start
+        m = re.match(
+            r'^(?:Section|SECTION|Article|ARTICLE)\s+(\d+\.\d+)|^\s*(\d+\.\d+)',
+            stripped
+        )
         if m:
-            key = f"{policy_id}§{m.group(1)}"
-            lookup[key] = line.strip()
+            sec_num = m.group(1) or m.group(2)
+            key = f"{current_pid}§{sec_num}"
+            lookup[key] = stripped
     return lookup
 
 
