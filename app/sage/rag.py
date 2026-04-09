@@ -333,10 +333,562 @@ Section 8: Incident Response
 }
 
 
-def load_technova_demo(api_key: str) -> Tuple[List[Dict], Dict[str, str], object, List[dict]]:
-    """Load the built-in TechNova demo policy corpus."""
+# ── Additional built-in demo corpora ─────────────────────────────────────────
+
+EDUTRACK_POLICIES_TEXT = {
+    "POL-AI-2025": (
+        "Academic Integrity Policy",
+        """ACADEMIC INTEGRITY POLICY (POL-AI-2025)
+Effective Date: August 1, 2025 — EduTrack Academy
+
+Section 1: Purpose
+Uphold academic honesty and authentic learning across all programs at EduTrack Academy.
+
+Section 2: Scope
+Applies to all enrolled students in credit-bearing courses.
+Does NOT apply to staff or faculty conducting independent research (see Research Integrity Policy).
+Part-time and online students are equally covered.
+
+Section 3: Definitions
+3.1 Plagiarism: Submitting another person's words, ideas, or work as one's own without proper attribution.
+3.2 Fabrication: Inventing or falsifying data, citations, or research results.
+3.3 Collusion: Unauthorized collaboration that misrepresents individual work.
+3.4 AI-Generated Content: Text, code, or analysis produced by large language models (e.g., ChatGPT)
+    constitutes plagiarism UNLESS the instructor has explicitly authorized AI tool use in writing.
+3.5 Contract Cheating: Submitting work purchased from or written by a third-party service.
+
+Section 4: Prohibited Conduct
+4.1 Using unauthorized materials (notes, devices, websites) during exams.
+4.2 Sharing exam questions or answers before or after an assessment window.
+4.3 Altering a graded submission and requesting re-evaluation without disclosure.
+4.4 Accessing another student's account or submitting work using another identity.
+
+Section 5: Consequences
+5.1 First offense: Zero on the assignment plus a written Academic Warning on the student record.
+5.2 Second offense: Failing grade (F) for the entire course.
+5.3 Third offense: Academic suspension for one full semester; notation on transcript.
+5.4 Egregious cases (e.g., contract cheating, exam impersonation): Expulsion; permanent transcript notation.
+5.5 Consequences are cumulative across all courses and semesters at the Academy.
+
+Section 6: Reporting and Appeals
+6.1 Faculty must report suspected violations to the Dean of Academic Affairs within 5 business days.
+6.2 Students may appeal a finding to the Academic Integrity Board within 14 calendar days of notice.
+6.3 The Board must issue a decision within 30 calendar days of receiving the appeal.
+6.4 Board decisions are final and binding.
+""",
+    ),
+    "POL-SP-2025": (
+        "Student Privacy Policy",
+        """STUDENT PRIVACY POLICY (POL-SP-2025)
+Effective Date: August 1, 2025 — EduTrack Academy
+
+Section 1: Purpose
+Protect the privacy of student education records in compliance with FERPA principles.
+
+Section 2: Scope
+Applies to all education records of enrolled and formerly enrolled students.
+2.1 Parental rights: Parents retain access rights until the student turns 18 OR enrolls in
+    a postsecondary program, whichever comes first. After that threshold, only the student
+    controls record access.
+2.2 Contractors and EdTech vendors accessing student data require a signed Data Processing Agreement.
+
+Section 3: Education Records
+3.1 Education records include: grades, transcripts, enrollment status, financial aid, disciplinary files.
+3.2 Records do NOT include: faculty personal notes not shared with others, law enforcement records,
+    employment records of students employed by the Academy.
+
+Section 4: Directory Information
+4.1 The following may be disclosed without consent: student name, enrollment status, degree program,
+    dates of attendance, honors and awards.
+4.2 Students may opt out of directory disclosure by submitting a written request to the Registrar
+    by the end of the first week of each semester. Opt-out applies only to the current academic year.
+
+Section 5: Non-Directory Information
+5.1 Grades, GPA, disciplinary records, health and disability records, Social Security numbers,
+    and financial records are non-directory and require WRITTEN CONSENT before disclosure.
+5.2 Emergency disclosure without consent is permitted only if there is an imminent threat to
+    health or safety, and must be documented within 24 hours.
+
+Section 6: Third-Party Access
+6.1 Vendors and researchers may access de-identified data only with IRB approval.
+6.2 Any data breach involving student records must be reported to the Privacy Officer within 24 hours
+    and to affected students within 30 days.
+
+Section 7: Student Rights
+7.1 Students may inspect their education records within 45 days of a written request.
+7.2 Students may request amendment of records they believe are inaccurate.
+7.3 Students may file complaints with the Academy's Privacy Office or federal regulators.
+""",
+    ),
+    "POL-IU-2025": (
+        "IT Acceptable Use Policy",
+        """IT ACCEPTABLE USE POLICY (POL-IU-2025)
+Effective Date: August 1, 2025 — EduTrack Academy
+
+Section 1: Purpose
+Define authorized use of Academy technology resources and networks.
+
+Section 2: Scope
+Applies to all students, faculty, staff, and guests using Academy networks, devices, or systems.
+Personal devices connected to campus Wi-Fi are also subject to this policy.
+
+Section 3: Authorized Use
+3.1 Academic, administrative, and limited personal use are permitted.
+3.2 Personal use must not interfere with academic work, consume excessive bandwidth, or violate law.
+
+Section 4: Prohibited Activities
+4.1 Illegal activities of any kind (piracy, hacking, fraud).
+4.2 Cryptocurrency mining on Academy infrastructure.
+4.3 Sharing login credentials; accounts are individual and non-transferable.
+4.4 Installing unauthorized software on Academy-owned devices.
+4.5 Accessing, storing, or distributing sexually explicit material.
+4.6 Using Academy email to send bulk unsolicited communications.
+4.7 Attempting to bypass network security controls or monitoring systems.
+
+Section 5: Privacy and Monitoring
+5.1 Users have NO expectation of privacy on Academy-owned systems or networks.
+5.2 Network traffic, system logs, and email on Academy servers may be monitored without notice.
+5.3 Personal devices on campus Wi-Fi are subject to traffic monitoring for security purposes.
+
+Section 6: BYOD
+6.1 Personal devices must register with IT before accessing internal Academy systems.
+6.2 Registered BYOD devices must have up-to-date antivirus and OS patches.
+6.3 BYOD devices may NOT be granted administrative access to Academy servers.
+
+Section 7: Enforcement
+7.1 First violation: written warning and mandatory IT security training.
+7.2 Repeated or serious violations: suspension of access privileges, academic or HR referral.
+7.3 Illegal activity is referred to law enforcement; Academy cooperation is mandatory.
+""",
+    ),
+}
+
+MEDCORE_POLICIES_TEXT = {
+    "POL-PHI-2025": (
+        "Patient Health Information Policy",
+        """PATIENT HEALTH INFORMATION POLICY (POL-PHI-2025)
+Effective Date: January 1, 2025 — MedCore Health
+
+Section 1: Purpose
+Ensure lawful, ethical, and secure handling of Protected Health Information (PHI) for all patients.
+
+Section 2: Scope
+2.1 Applies to ALL workforce members: employees, contractors, volunteers, students on placement.
+2.2 Business associates handling PHI on behalf of MedCore must sign a Business Associate Agreement (BAA).
+2.3 PHI includes any individually identifiable health information in any medium.
+
+Section 3: Minimum Necessary Standard
+3.1 Access only the PHI required to perform your specific job function.
+3.2 Requesting or viewing PHI beyond your role (including records of family members or celebrities)
+    is a violation even if technically accessible.
+3.3 Verbal discussions of PHI must occur in private areas; do not discuss patient details in hallways,
+    elevators, or public spaces.
+
+Section 4: Access Controls
+4.1 Access is role-based; your supervisor grants access; IT provisions credentials.
+4.2 Shared logins are STRICTLY PROHIBITED. Each workforce member has a unique identifier.
+4.3 Workstations must auto-lock after 15 minutes of inactivity. Manual lock required when leaving.
+4.4 PHI must never be transmitted via personal email, SMS, or unapproved messaging apps.
+
+Section 5: Disclosure Rules
+5.1 PHI may be disclosed without authorization for Treatment, Payment, and Operations (TPO).
+5.2 All other disclosures require the patient's signed written authorization.
+5.3 Patients have the right to request restrictions on disclosures; honor restrictions where feasible.
+5.4 A disclosure log must be maintained for all non-TPO disclosures; available to patients on request.
+
+Section 6: Mobile and Remote Access
+6.1 PHI on mobile devices requires AES-256 encryption and MDM enrollment.
+6.2 USB drives and personal cloud storage (Google Drive, Dropbox) are PROHIBITED for PHI.
+6.3 Remote access to clinical systems requires VPN and MFA at all times.
+
+Section 7: Breach Response
+7.1 Suspected PHI breach must be reported to the Privacy Officer within 1 hour of discovery.
+7.2 The Privacy Officer will conduct a risk assessment within 24 hours.
+7.3 Confirmed breaches affecting patients must be notified to those patients within 60 days.
+7.4 Workforce member breaches may result in immediate suspension pending investigation.
+""",
+    ),
+    "POL-WS-2025": (
+        "Workplace Safety Policy",
+        """WORKPLACE SAFETY POLICY (POL-WS-2025)
+Effective Date: January 1, 2025 — MedCore Health
+
+Section 1: Purpose
+Protect patients, visitors, and workforce from preventable harm in MedCore facilities.
+
+Section 2: Scope
+Applies to all staff, contractors, volunteers, and students present on any MedCore premises.
+
+Section 3: Personal Protective Equipment (PPE)
+3.1 Gloves and surgical masks are MANDATORY in all patient-facing areas at all times.
+3.2 N95 respirators are required in airborne-precaution rooms (TB, COVID-19, measles protocols).
+3.3 Eye protection required when splatter risk exists. Gowns required for contact precaution rooms.
+3.4 PPE must be donned before entering and doffed safely before leaving the designated zone.
+3.5 Reusing single-use PPE is prohibited.
+
+Section 4: Incident Reporting
+4.1 All workplace injuries, needle-stick incidents, and near-misses must be reported to your
+    supervisor AND the Safety Officer within 4 hours.
+4.2 Post-exposure prophylaxis (PEP) must be initiated within 2 hours of blood-borne exposure.
+4.3 Falsifying or omitting incident reports is grounds for immediate termination.
+
+Section 5: Hazardous Materials
+5.1 Safety Data Sheets (SDS) must be current and accessible in every department.
+5.2 Spill kits must be available and stocked; staff must complete spill response training annually.
+5.3 Cytotoxic drugs require additional closed-system transfer device (CSTD) handling protocols.
+
+Section 6: Emergency Procedures
+6.1 Evacuation routes must be posted in every room and reviewed at orientation.
+6.2 Fire drills and code simulations are conducted quarterly; attendance is mandatory.
+6.3 For patient evacuations, use RACE protocol: Rescue, Alarm, Contain/Close, Extinguish/Evacuate.
+
+Section 7: Workplace Violence
+7.1 Zero tolerance for violence or threats against any person on MedCore property.
+7.2 Immediately activate the security code for your facility upon threat observation.
+7.3 Do NOT physically intervene; ensure your own safety first.
+7.4 All incidents must be documented and reported to HR and Security within 24 hours.
+""",
+    ),
+    "POL-SC-2025": (
+        "Staff Conduct Policy",
+        """STAFF CONDUCT POLICY (POL-SC-2025)
+Effective Date: January 1, 2025 — MedCore Health
+
+Section 1: Purpose
+Maintain a professional, ethical, and respectful environment for patients and colleagues.
+
+Section 2: Scope
+Applies to all employed staff. Contractors are subject to conduct clauses in their agreements.
+
+Section 3: Professional Standards
+3.1 Address patients by their preferred name/pronoun; confirm at each encounter.
+3.2 Maintain patient dignity during all examinations, procedures, and conversations.
+3.3 Follow the chain of command; escalate clinical concerns through proper channels, not social media.
+3.4 Punctuality is required; notify your supervisor at least 1 hour before shift start if unable to attend.
+
+Section 4: Social Media
+4.1 No photographs of patients, patient belongings, or areas where patients are visible.
+4.2 Do not identify or describe a patient's condition, treatment, or visit on any public platform.
+4.3 Personal views must not be presented as MedCore's position; include a disclaimer if posting
+    health-related content as a MedCore employee.
+4.4 Violations may result in immediate suspension pending review.
+
+Section 5: Conflicts of Interest
+5.1 Disclose gifts or hospitality valued over $25 from vendors, pharmaceutical companies, or patients.
+5.2 Do not refer patients to businesses in which you or immediate family hold a financial interest.
+5.3 Secondary employment in competing healthcare facilities requires prior written approval from HR.
+
+Section 6: Substance Use
+6.1 Zero tolerance for working under the influence of alcohol or any non-prescribed substance.
+6.2 Random and post-incident drug/alcohol testing is required for safety-sensitive roles.
+6.3 Self-referral to the Employee Assistance Program (EAP) will be treated confidentially.
+""",
+    ),
+}
+
+LAUNCHPAD_POLICIES_TEXT = {
+    "POL-RF-2025": (
+        "Remote-First Work Policy",
+        """REMOTE-FIRST WORK POLICY (POL-RF-2025)
+Effective Date: February 1, 2025 — LaunchPad Startup
+
+Section 1: Purpose
+LaunchPad is a remote-first company. All roles are remote by default unless explicitly designated
+"on-site required" in the job description.
+
+Section 2: Scope
+2.1 Applies to all full-time and part-time employees.
+2.2 Contractors are covered by separate provisions in their Statement of Work (SOW); this policy
+    does NOT apply to contractors unless explicitly stated in the SOW.
+2.3 New employees must complete a 30-day remote onboarding program before working fully async.
+
+Section 3: Equipment
+3.1 LaunchPad provides a company-issued laptop (MacBook Pro) and peripherals to all full-time employees.
+3.2 Full-time employees receive a one-time $1,500 home-office setup stipend, reimbursed within 30 days.
+3.3 Part-time employees (under 30 hrs/week) receive a laptop only; no home-office stipend.
+3.4 Contractors must provide their own equipment.
+
+Section 4: Working Hours
+4.1 Core overlap window: 10 AM – 2 PM in the employee's LOCAL timezone, Monday–Friday.
+4.2 Employees outside the core overlap window may request an adjusted schedule with manager approval.
+4.3 Results-oriented culture: hours worked matter less than deliverables met.
+
+Section 5: International Work
+5.1 Employees may work from any country for up to 90 consecutive days without additional approval,
+    provided they notify HR 2 weeks in advance.
+5.2 Stays exceeding 90 consecutive days require a legal and tax review by HR; additional approvals
+    may include CFO and Legal. Permanent relocation requires separate negotiation.
+5.3 Employees are responsible for understanding their personal tax obligations abroad.
+5.4 LaunchPad will not cover tax liabilities arising from unauthorized extended international stays.
+
+Section 6: Co-working Spaces
+6.1 Co-working space costs are reimbursed up to $300/month with receipts and manager approval.
+6.2 All work conducted at co-working spaces must comply with POL-DS-2025 (Data Security Policy).
+
+Section 7: Company Gatherings
+7.1 Quarterly all-hands (in person): attendance strongly encouraged; travel and accommodation fully covered.
+7.2 Team offsites: travel costs covered; minimum 4 weeks notice required for scheduling.
+""",
+    ),
+    "POL-IP-2025": (
+        "Intellectual Property Policy",
+        """INTELLECTUAL PROPERTY POLICY (POL-IP-2025)
+Effective Date: February 1, 2025 — LaunchPad Startup
+
+Section 1: Purpose
+Define ownership of intellectual property created during the employment relationship.
+
+Section 2: Scope
+2.1 Applies to all full-time and part-time employees from the first day of employment.
+2.2 Contractors have separate IP provisions in their SOW; if silent, this policy applies.
+
+Section 3: Company-Owned IP
+3.1 All inventions, software, designs, data, processes, and works of authorship created:
+    (a) during working hours, OR
+    (b) using company equipment or resources, OR
+    (c) related to LaunchPad's current or anticipated business
+    are assigned to LaunchPad in perpetuity, worldwide, across all media.
+3.2 This includes work created evenings, weekends, or personal time if conditions in §3.1 apply.
+3.3 Employees must promptly disclose any potentially assignable invention to the CTO in writing.
+
+Section 4: Personal Exclusion
+4.1 Work that is (a) entirely unrelated to LaunchPad's business, (b) created on personal time,
+    and (c) created using exclusively personal equipment is NOT assigned.
+4.2 Employees claiming a personal exclusion must document the creation (date, tools used,
+    description) within 30 days of creation. Late documentation may invalidate the exclusion claim.
+
+Section 5: Open Source Contributions
+5.1 Contributing to external open-source projects during working hours requires prior written approval
+    from the CTO.
+5.2 Contributions using company IP or referencing company systems require Legal review.
+
+Section 6: Post-Employment
+6.1 IP assignment survives termination of employment.
+6.2 For one year post-termination, IP derived from or closely related to company work remains
+    assigned to LaunchPad unless a written release is obtained.
+""",
+    ),
+    "POL-CC-2025": (
+        "Code of Conduct",
+        """CODE OF CONDUCT (POL-CC-2025)
+Effective Date: February 1, 2025 — LaunchPad Startup
+
+Section 1: Purpose
+Build an inclusive, respectful, and high-integrity workplace where everyone can do their best work.
+
+Section 2: Scope
+Applies to all employees, contractors, interns, and vendors when:
+(a) on company premises or at company events, or
+(b) using company-provided communication channels (Slack, email, Zoom), or
+(c) representing LaunchPad in any public or professional capacity.
+
+Section 3: Expected Behavior
+3.1 Communicate respectfully; assume good intent; ask for clarification before escalating.
+3.2 Give proper credit for others' ideas and contributions.
+3.3 Report concerns early; silence enables harm.
+3.4 Protect confidential information; do not discuss fundraising, cap table, or unannounced features.
+
+Section 4: Prohibited Behavior
+4.1 Harassment based on race, gender, age, disability, sexual orientation, religion, or any other
+    protected characteristic, whether overt or subtle.
+4.2 Retaliation against anyone who reports in good faith; retaliation is treated as seriously as
+    the original violation.
+4.3 Dishonesty including misrepresenting work, falsifying expense reports, or deceiving customers.
+4.4 Creating a hostile work environment through intimidation, bullying, or exclusion.
+
+Section 5: Reporting
+5.1 Report concerns to HR (hr@launchpad.io) or anonymously via the EthicsPoint hotline.
+5.2 All reports are investigated within 30 days. Reporter identity is protected to the extent possible.
+5.3 Do NOT investigate on your own; self-investigation may compromise official proceedings.
+
+Section 6: Consequences
+6.1 Minor violations: coaching and documented improvement plan.
+6.2 Serious violations: Performance Improvement Plan, suspension, or termination.
+6.3 Egregious violations (harassment, fraud, violence): immediate termination without severance.
+""",
+    ),
+}
+
+RETAILFLOW_POLICIES_TEXT = {
+    "POL-CD-2025": (
+        "Customer Data Policy",
+        """CUSTOMER DATA POLICY (POL-CD-2025)
+Effective Date: March 1, 2025 — RetailFlow Corp
+
+Section 1: Purpose
+Govern the lawful and secure collection, use, and storage of customer personal data.
+
+Section 2: Scope
+Applies to all associates and managers who collect, process, or access customer data.
+Third-party marketing and analytics partners must sign a Data Processing Agreement.
+
+Section 3: Data Collection
+3.1 Collect only the minimum data necessary for the stated transaction purpose.
+3.2 Loyalty program enrollment: collect name, email, and purchase history only; SSN and date
+    of birth are PROHIBITED unless required for age-restricted purchases (alcohol, tobacco).
+3.3 Customers must provide affirmative opt-in consent before marketing emails are sent.
+3.4 Data collected at POS for fraud prevention must be disclosed in the store privacy notice.
+
+Section 4: Payment Card Data (PCI-DSS Compliance)
+4.1 Full card numbers must NEVER be written down, photographed, emailed, or stored in any system
+    not certified for PCI-DSS compliance.
+4.2 Use only company-approved point-to-point encrypted (P2PE) POS terminals.
+4.3 Inspect POS terminals for skimming devices at the start of every shift; report anomalies immediately.
+4.4 Associates may NEVER process their own transactions or transactions for immediate family members.
+4.5 Credentials for POS systems must NOT be shared; each associate has a unique login.
+
+Section 5: Data Retention
+5.1 Customer transaction records: retained 7 years for financial/legal compliance.
+5.2 Loyalty program data: retained while account is active plus 2 years after last purchase.
+5.3 Customer complaints and return records: retained 3 years.
+5.4 Data must be securely deleted (not just deleted) at end of retention period using approved tools.
+
+Section 6: Breach Response
+6.1 Suspected customer data breach (loss of device, unauthorized access, skimming device found)
+    must be reported to the Store Manager and IT Security within 30 minutes of discovery.
+6.2 The Store Manager must escalate to the Regional Loss Prevention team within 1 hour.
+6.3 Associates must NOT attempt to investigate or contain a breach independently.
+""",
+    ),
+    "POL-EH-2025": (
+        "Employee Handbook",
+        """EMPLOYEE HANDBOOK (POL-EH-2025)
+Effective Date: March 1, 2025 — RetailFlow Corp
+
+Section 1: Purpose
+Establish clear standards for employment, scheduling, and conduct at all RetailFlow locations.
+
+Section 2: Scope
+2.1 Applies to all hourly and salaried employees.
+2.2 Seasonal and temporary employees are covered by a separate Seasonal Agreement, which
+    supersedes this handbook where they conflict.
+2.3 This handbook does not constitute a contract of employment.
+
+Section 3: Scheduling
+3.1 Schedules are posted 2 weeks in advance via the RetailFlow scheduling app.
+3.2 Shift swap requests must be submitted at least 72 hours before the affected shift.
+3.3 Employees are responsible for finding a qualified replacement for approved swaps;
+    the Store Manager must approve all swaps before they take effect.
+
+Section 4: Attendance
+4.1 Three unexcused absences within any 90-day rolling period = written warning.
+4.2 Six unexcused absences within 90 days = termination.
+4.3 No-call no-show (absent without contact before shift start) = automatic written warning.
+4.4 Two no-call no-shows within 90 days = termination.
+4.5 Medical or family emergency absences must be documented within 3 business days.
+
+Section 5: Dress Code
+5.1 Company uniform (shirt and name badge) is mandatory and must be clean and pressed.
+5.2 Name badge must be visible at chest level at all times while on the sales floor.
+5.3 Visible tattoos above the collar and facial piercings (other than small ear studs) are not permitted.
+5.4 Closed-toe, non-slip shoes required in all areas; fashion footwear not permitted.
+
+Section 6: Break Policy
+6.1 Shifts of 4–6 hours: one 15-minute paid break.
+6.2 Shifts over 6 hours: one 30-minute unpaid meal break plus one 15-minute paid break.
+6.3 Breaks must be taken; waiving a break is not permitted and will not result in additional pay.
+6.4 Meal breaks must be taken no later than the 5th hour of a shift.
+
+Section 7: Social Media
+7.1 Do not photograph or post content that reveals store layout, security camera placement,
+    inventory counts, or access codes.
+7.2 Personal opinions expressed online must not be presented as RetailFlow's position.
+7.3 Do not post about ongoing loss-prevention investigations or personnel matters.
+""",
+    ),
+    "POL-SS-2025": (
+        "Store Safety Policy",
+        """STORE SAFETY POLICY (POL-SS-2025)
+Effective Date: March 1, 2025 — RetailFlow Corp
+
+Section 1: Purpose
+Protect customers, associates, and RetailFlow property from preventable safety incidents.
+
+Section 2: Scope
+Applies to all associates, managers, contractors, and delivery personnel on RetailFlow premises.
+
+Section 3: Hazard Prevention
+3.1 Spills must be cleaned up or clearly marked with wet-floor cones within 5 minutes of discovery.
+3.2 Aisle obstructions must be cleared before opening and within 15 minutes of occurrence during hours.
+3.3 Ladders and step-stools must be inspected before each use; damaged equipment must be tagged
+    and removed from service immediately.
+3.4 Lifting objects over 30 lbs requires proper technique; team lift required for objects over 50 lbs.
+3.5 Box cutters must be retracted when not in active use; associates under 18 may not use box cutters.
+
+Section 4: Incident Reporting
+4.1 All customer injuries on premises must be documented in an Incident Report within 1 hour,
+    regardless of whether the customer accepts or declines medical assistance.
+4.2 All associate injuries, however minor, must be reported to the Store Manager before end of shift.
+4.3 Failing to report an incident is a serious disciplinary offense.
+4.4 Do not make admissions of liability to customers; refer all comments to the Store Manager.
+
+Section 5: Emergency Procedures
+5.1 Fire: Activate nearest pull station; call 911; initiate customer evacuation; meet at designated
+    assembly point. Do NOT use elevators. Do NOT attempt to extinguish large fires.
+5.2 Medical emergency: Call 911 immediately; retrieve AED if needed; do NOT move the person unless
+    they are in immediate danger.
+5.3 Active threat: Lock or barricade, Lights out, Leave if safe, Call 911 — follow ALICE protocol.
+
+Section 6: Loss Prevention
+6.1 Associates must greet all customers entering their department; this is both service and deterrence.
+6.2 Never physically confront or detain a suspected shoplifter; notify Loss Prevention or call for help.
+6.3 Discounts, voids, and refunds above $50 require manager approval and are logged in the system.
+""",
+    ),
+}
+
+
+# ── Demo organization registry ────────────────────────────────────────────────
+
+DEMO_ORGANIZATIONS = {
+    "technova": {
+        "name":        "TechNova Inc.",
+        "org_type":    "technology",
+        "icon":        "💻",
+        "tagline":     "Software company — remote work, data privacy, information security",
+        "policies":    TECHNOVA_POLICIES_TEXT,
+    },
+    "edutrack": {
+        "name":        "EduTrack Academy",
+        "org_type":    "education",
+        "icon":        "🎓",
+        "tagline":     "University — academic integrity, student privacy, IT acceptable use",
+        "policies":    EDUTRACK_POLICIES_TEXT,
+    },
+    "medcore": {
+        "name":        "MedCore Health",
+        "org_type":    "healthcare",
+        "icon":        "🏥",
+        "tagline":     "Healthcare org — patient data (HIPAA-style), workplace safety, staff conduct",
+        "policies":    MEDCORE_POLICIES_TEXT,
+    },
+    "launchpad": {
+        "name":        "LaunchPad Startup",
+        "org_type":    "startup",
+        "icon":        "🚀",
+        "tagline":     "Remote-first startup — IP assignment, code of conduct, international work",
+        "policies":    LAUNCHPAD_POLICIES_TEXT,
+    },
+    "retailflow": {
+        "name":        "RetailFlow Corp",
+        "org_type":    "retail",
+        "icon":        "🛒",
+        "tagline":     "Retail chain — PCI-DSS, customer data, employee handbook, store safety",
+        "policies":    RETAILFLOW_POLICIES_TEXT,
+    },
+}
+
+
+def load_demo(org_key: str, api_key: str) -> Tuple[List[Dict], Dict[str, str], object, List[dict]]:
+    """Load a built-in demo policy corpus by organization key."""
+    org = DEMO_ORGANIZATIONS[org_key]
     files = [
         (text.encode("utf-8"), f"{pid}.txt")
-        for pid, (_, text) in TECHNOVA_POLICIES_TEXT.items()
+        for pid, (_, text) in org["policies"].items()
     ]
     return ingest_documents(files, api_key)
+
+
+def load_technova_demo(api_key: str) -> Tuple[List[Dict], Dict[str, str], object, List[dict]]:
+    """Load the built-in TechNova demo policy corpus (backward-compat wrapper)."""
+    return load_demo("technova", api_key)

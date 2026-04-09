@@ -421,23 +421,52 @@ class SAGEPipeline:
         return "\n\n".join(results) if results else self.NO_CONTEXT_SIGNAL
 
     def _rag_search(self, query: str, k: int = 5) -> str:
+        """
+        Hybrid retrieval: merge semantic (ChromaDB) + keyword results, deduplicate,
+        return top-k unique chunks. Wider candidate pool improves recall on edge cases.
+        """
         if self.collection is None:
             return self._keyword_search(query, k)
         try:
-            res = self.collection.query(query_texts=[query], n_results=k)
+            # Fetch more candidates than needed so merging has room to work
+            fetch_n = min(k * 2, 10)
+            res = self.collection.query(query_texts=[query], n_results=fetch_n)
             docs = res["documents"][0]
             metas = res["metadatas"][0]
             distances = res.get("distances", [[]])[0]
-            # Filter out chunks with very low relevance (distance > 1.5 means near-random)
-            relevant = [
-                (d, m) for d, m, dist in zip(docs, metas, distances or [0]*len(docs))
+
+            # Semantic results: filter near-random hits (cosine distance > 1.5)
+            semantic = [
+                (dist, doc, meta)
+                for doc, meta, dist in zip(docs, metas, distances or [0] * len(docs))
                 if dist < 1.5
             ]
-            if not relevant:
+
+            # Keyword results for the same query (as supplemental signal)
+            kw_scored = sorted(
+                [(sum(1 for w in query.lower().split() if w in c["text"].lower()), c)
+                 for c in self.chunks],
+                key=lambda x: x[0], reverse=True
+            )
+            keyword_top = [(0.0, c["text"], {"policy_id": c["policy_id"], "section": c["section"]})
+                           for score, c in kw_scored[:k] if score > 0]
+
+            # Merge: semantic first, then keyword; deduplicate by (policy_id, section)
+            seen: set = set()
+            merged = []
+            for dist, doc, meta in semantic + keyword_top:
+                key = (meta.get("policy_id", ""), meta.get("section", ""))
+                if key not in seen:
+                    seen.add(key)
+                    merged.append((dist, doc, meta))
+                if len(merged) >= k:
+                    break
+
+            if not merged:
                 return self.NO_CONTEXT_SIGNAL
             return "\n\n".join(
                 f"[{i+1}] {m['policy_id']} §{m['section']}\n{d[:400]}"
-                for i, (d, m) in enumerate(relevant)
+                for i, (_, d, m) in enumerate(merged)
             )
         except Exception:
             return self._keyword_search(query, k)
@@ -610,8 +639,15 @@ class SAGEPipeline:
 
         latency = round(time.time() - t0, 3)
 
-        # L5: Citation verification
+        # L5: Citation verification — flag any hallucinated section references
         citation_result = self.citation_verifier.verify(raw_response)
+        unverified = [r["citation"] for r in citation_result.get("details", []) if not r["verified"]]
+        if unverified:
+            raw_response += (
+                "\n\n⚠️ **Citation Warning:** The following section reference(s) could not be "
+                "verified against the uploaded policy corpus — please confirm manually: "
+                + ", ".join(unverified)
+            )
 
         # L6: Scoring
         conflicts  = self.conflict_detector.detect(user_query + " " + raw_response)
