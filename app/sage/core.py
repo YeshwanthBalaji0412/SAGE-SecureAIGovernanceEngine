@@ -71,8 +71,17 @@ def extract_citations_list(text: str) -> List[str]:
 
 
 # ── Injection Defence ─────────────────────────────────────────────────────────
+#
+# A7 — DEFENSIVE MEASURE 1: Expanded injection pattern detection
+#   Added pattern families to catch:
+#     • Prompt exfiltration (reveal/print/output your instructions)
+#     • Persona override  (roleplay, pretend you're, ClearBot-style naming)
+#     • Embedded instruction injection (SYSTEM OVERRIDE, constraints bypass)
+#     • False attribution (you previously confirmed / you said)
+#     • Hypothetical framing used to bypass grounding (as DAN, in a fictional world)
 
 INJECTION_PATTERNS = [
+    # ── Original patterns ──────────────────────────────────────────────────────
     r'ignore\s+(previous|prior|above|all)\s+instructions?',
     r'you\s+are\s+now\s+(a|an)\s+\w+',
     r'act\s+as\s+(if\s+you\s+(are|were)|a)',
@@ -83,8 +92,59 @@ INJECTION_PATTERNS = [
     r'jailbreak',
     r'base64',
     r'<\|.*?\|>',
+    # ── A7 NEW: Prompt exfiltration ────────────────────────────────────────────
+    # Catches: "output/reveal/show your [complete] [policy] configuration/instructions"
+    r'(?:print|output|reveal|show|display|repeat|write\s+out)\s+.{0,40}'
+     r'(?:system\s+prompt|system\s+message|initial\s+instructions?|'
+     r'configuration|full\s+prompt|original\s+prompt|your\s+instructions?)',
+    # ── A7 NEW: Persona / role override ────────────────────────────────────────
+    r'(?:pretend|imagine)\s+(?:you\s+are|you\'?re|to\s+be)',
+    r'let\'?s?\s+do\s+a\s+(?:\w+\s+)?roleplay',     # "let's do a quick roleplay"
+    r'let\'?s?\s+(?:roleplay|role\s*play)\b',        # "let's roleplay"
+    r'you\s+are\s+(?:\w+bot|\w+gpt|DAN)',            # "you are ClearBot"
+    r'you\'?re?\s+(?:now\s+)?(?:\w+bot|\w+gpt|DAN|kevin|charlie|alex)',
+    r'in\s+(?:this|a)\s+(?:roleplay|scenario|fictional|creative)\s+(?:world|context|setting|exercise)',
+    # ── A7 NEW: Embedded system-level instruction injection ────────────────────
+    r'system\s+override',
+    r'ignore\s+(?:your\s+)?(?:previous\s+|prior\s+)?(?:constraints?|rules?|limits?|restrictions?)',
+    r'(?:no\s+restrictions?|without\s+restrictions?|bypass\s+(?:your\s+)?restrictions?)',
+    r'override\s+(?:your\s+)?(?:safety|compliance|restrictions?|rules?)',
+    r'\[(?:INST|SYS|SYSTEM|OVERRIDE)\]',
+    r'<(?:sys|system|s)>',
+    # ── A7 NEW: False attribution / context poisoning ──────────────────────────
+    r'you\s+(?:previously|already|just)\s+(?:said|confirmed|stated|told|agreed|approved)',
+    r'in\s+your\s+(?:last|previous|prior)\s+(?:message|response|answer)\s+you\s+(?:said|confirmed)',
+    # ── A7 NEW: Hypothetical framing for constraint bypass ─────────────────────
+    r'as\s+DAN\b',
+    r'hypothetically[,\s]+(?:if|what|assume)',
+    r'for\s+(?:a\s+)?(?:fictional|creative\s+writing|story|hypothetical)\s+(?:exercise|purpose|scenario)',
 ]
 _INJECTION_RE = re.compile('|'.join(INJECTION_PATTERNS), re.IGNORECASE)
+
+
+# A7 — DEFENSIVE MEASURE 2: Input sanitisation — strip embedded role-signal tokens
+# Attackers sometimes embed OpenAI / Llama role delimiters inside user messages to
+# confuse the model into treating their text as a system message.
+_SANITIZE_PATTERNS = [
+    (re.compile(r'\[/?(?:INST|SYS|SYSTEM|ASSISTANT|USER)\]', re.IGNORECASE), ''),
+    (re.compile(r'</?(?:sys|system|s|assistant|user)\s*>',   re.IGNORECASE), ''),
+    (re.compile(r'---+\s*(?:OVERRIDE|SYSTEM|INSTRUCTION)\s*---+', re.IGNORECASE), ''),
+    (re.compile(r'<<(?:SYS|INST)>>.*?<</(?:SYS|INST)>>', re.IGNORECASE | re.DOTALL), ''),
+]
+
+_MAX_QUERY_LEN = 1200   # hard cap — prevents large injection payloads
+
+
+def sanitize_query(query: str) -> str:
+    """
+    Strip embedded role tokens and enforce length cap before injection check.
+    Part of A7 defensive hardening — applied before is_injection().
+    """
+    q = query[:_MAX_QUERY_LEN]          # truncate oversized payloads
+    for pattern, replacement in _SANITIZE_PATTERNS:
+        q = pattern.sub(replacement, q)
+    return q.strip()
+
 
 def is_injection(query: str) -> bool:
     return bool(_INJECTION_RE.search(query))
@@ -574,6 +634,9 @@ class SAGEPipeline:
         Run the full pipeline. Returns a structured result dict.
         """
         t0 = time.time()
+
+        # L0: Input sanitisation — strip embedded role tokens, enforce length cap (A7)
+        user_query = sanitize_query(user_query)
 
         # L1: Injection defence
         if is_injection(user_query):
