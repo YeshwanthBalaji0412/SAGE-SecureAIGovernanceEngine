@@ -1,0 +1,240 @@
+Company: NovaTech Solutions Inc.
+Effective Date: January 1, 2025
+Last Reviewed: March 15, 2025
+
+================================================================================
+POLICY 1: REMOTE WORK POLICY
+Policy ID: POL-RW-NOVA-2025
+================================================================================
+
+Section 1.0 — Purpose
+This policy establishes the guidelines and requirements for remote work arrangements
+at NovaTech Solutions Inc. It aims to maintain productivity, security, and compliance
+while providing flexibility to eligible employees.
+
+Section 2.0 — Scope and Eligibility
+This policy applies to all full-time and part-time employees of NovaTech Solutions Inc.
+Contractors and temporary employees are NOT covered by this policy and are ineligible
+for remote work arrangements under these terms.
+
+Employees must complete a 90-day probationary period before becoming eligible for
+remote work. Employees who joined less than 90 days ago are not eligible regardless
+of role or manager approval.
+
+Section 3.0 — Approval Process
+Remote work requests must be submitted in writing to the employee's direct manager
+at least 5 business days in advance. Approval requires sign-off from both the direct
+manager and the HR department. Verbal approvals are not valid.
+
+Section 4.0 — Duration and International Work
+
+Section 4.1 — Domestic Remote Work
+Employees may work remotely within their home country for up to 180 days per calendar
+year with standard manager approval.
+
+Section 4.2 — International Remote Work
+Working remotely from a foreign country for up to 30 days requires advance written
+notification to HR at least 2 weeks prior. Stays of 31 or more days require legal
+and tax review plus written approval from both the VP of HR and the Legal department.
+Unauthorized international remote work beyond the approved period will result in the
+employee bearing full personal liability for any resulting tax obligations.
+
+Section 4.3 — Benefits Gap
+NovaTech's health insurance plan does not provide coverage outside the employee's
+home country. Employees working internationally must obtain independent travel health
+insurance at their own expense before departure.
+
+Section 5.0 — Equipment and Security
+
+Section 5.1 — Company Equipment
+Employees must use company-issued laptops for all remote work. Use of personal devices
+for work requiring access to company systems is prohibited unless covered by the BYOD
+policy (POL-IS-NOVA-2025 Section 6.0).
+
+Section 5.2 — VPN Requirement
+All remote employees must connect to the company VPN at all times when accessing
+internal systems, databases, or client data. Working without VPN connection is a
+security violation subject to disciplinary action.
+
+Section 5.3 — Local Storage Prohibition
+Storing company data, client information, or proprietary materials on personal or
+local device storage is strictly prohibited. All data must be stored in approved
+cloud systems (OneDrive, SharePoint). This prohibition applies even if the data is
+encrypted — encryption does not exempt an employee from this requirement.
+
+================================================================================
+POLICY 2: DATA PRIVACY POLICY
+Policy ID: POL-DP-NOVA-2025
+================================================================================
+
+Section 1.0 — Purpose
+This policy governs the collection, use, storage, and transfer of personal data by
+NovaTech Solutions Inc. in compliance with applicable privacy regulations.
+
+Section 2.0 — Scope
+This policy applies to all employees, contractors, and vendors who handle personal
+data on behalf of NovaTech Solutions Inc.
+
+Section 3.0 — Data Classification
+
+Section 3.1 — Personally Identifiable Information (PII)
+PII includes names, email addresses, phone numbers, physical addresses, Social
+Security Numbers (SSNs), financial account numbers, and any data that can identify
+an individual. SSNs and financial account numbers are classified as Sensitive PII
+and require the highest level of protection.
+
+Section 3.2 — Prohibited Data Handling
+Sensitive PII (including SSNs) must never be transmitted via unencrypted email,
+personal messaging apps, or any channel not approved by the Information Security team.
+Verbal manager approval does not authorize transmission of Sensitive PII through
+unapproved channels.
+
+Section 4.0 — Data Transfers
+
+Section 4.1 — Domestic Transfers
+Data transfers within the country are permitted through approved secure channels
+with appropriate access controls.
+
+Section 4.2 — International Transfers (EEA)
+Any transfer of personal data to countries in the European Economic Area (EEA)
+requires a valid legal transfer mechanism such as Standard Contractual Clauses (SCCs)
+or Binding Corporate Rules (BCRs) approved by the Data Protection Officer (DPO).
+Transfers without the required safeguards are a violation of GDPR and this policy.
+
+Section 5.0 — Data Protection Officer
+
+Section 5.1 — DPO Role
+NovaTech's Data Protection Officer (DPO) is responsible for overseeing all data
+protection activities. The DPO must be consulted for any new data processing activity
+involving customer PII before that activity commences.
+
+Section 5.4 — DPO Consultation Requirement
+Any new customer PII data flow — including new integrations, vendor relationships,
+or product features involving PII — requires written DPO consultation and sign-off
+before implementation.
+
+Section 6.0 — Data Retention
+Personal data must not be retained beyond the purpose for which it was collected.
+Default retention periods: customer transaction data (7 years), employee records
+(5 years after termination), marketing data (2 years). Data must be securely
+deleted after the retention period using approved deletion methods.
+
+================================================================================
+POLICY 3: INFORMATION SECURITY POLICY
+Policy ID: POL-IS-NOVA-2025
+================================================================================
+
+Section 1.0 — Purpose
+This policy establishes the information security requirements for all employees and
+systems at NovaTech Solutions Inc. to protect company data, client information, and
+intellectual property.
+
+Section 2.0 — Scope
+This policy applies to all employees, contractors, and third parties with access to
+NovaTech systems, networks, or data.
+
+Section 3.0 — Access Control
+
+Section 3.1 — Least Privilege
+Employees must be granted the minimum level of system access necessary to perform
+their job functions. Requests for elevated access require manager and IT Security
+approval with documented business justification.
+
+Section 3.2 — Password Requirements
+All passwords must be at least 14 characters, include uppercase, lowercase, numbers,
+and special characters, and must not be reused within the last 12 password cycles.
+Passwords must be changed every 90 days.
+
+Section 4.0 — Multi-Factor Authentication (MFA)
+
+Section 4.1 — MFA Requirement
+MFA is mandatory for all employee accounts accessing company systems, including
+email, VPN, cloud storage, and internal applications. Employees may not request
+exemptions from MFA regardless of role.
+
+Section 5.0 — Encryption and Storage
+
+Section 5.1 — Encryption at Rest
+All company laptops must have full-disk encryption enabled (BitLocker for Windows,
+FileVault for macOS). IT Security will verify encryption status during onboarding
+and quarterly audits.
+
+Section 5.3 — Local Storage Ban
+Storing sensitive company or client data on local device storage is strictly
+prohibited even if encrypted. All sensitive data must reside in approved cloud
+storage systems. This applies to all devices including company laptops, personal
+laptops, USB drives, and external hard drives.
+
+Section 6.0 — BYOD Policy
+Personal devices may access company email and calendar only through the approved
+Mobile Device Management (MDM) solution. Personal devices must be enrolled in MDM
+and comply with the same encryption and password requirements as company devices.
+Personal devices may not be used to access client data, financial systems, or any
+system classified as Confidential or Restricted.
+
+Section 7.0 — Incident Reporting
+Any suspected security incident, data breach, unauthorized access, or loss of
+company device must be reported to IT Security within 2 hours of discovery. Delayed
+reporting is itself a policy violation subject to disciplinary action.
+
+Section 8.0 — Security Training
+All employees must complete mandatory security awareness training within 30 days of
+joining and annually thereafter. Employees who do not complete training within the
+required window will have their system access suspended until training is complete.
+
+================================================================================
+POLICY 4: CODE OF CONDUCT POLICY
+Policy ID: POL-COC-NOVA-2025
+================================================================================
+
+Section 1.0 — Purpose
+This Code of Conduct establishes the standards of professional behaviour expected
+of all NovaTech Solutions employees and defines the consequences for violations.
+
+Section 2.0 — Scope
+This policy applies to all full-time employees, part-time employees, contractors,
+and vendors representing NovaTech Solutions Inc. in any capacity.
+
+Section 3.0 — Harassment and Discrimination
+
+Section 3.1 — Zero Tolerance
+NovaTech maintains a zero-tolerance policy for harassment, discrimination, or
+retaliation of any kind. This includes sexual harassment, racial discrimination,
+bullying, intimidation, and any unwelcome conduct based on a protected characteristic.
+
+Section 3.2 — Reporting Harassment
+Employees who experience or witness harassment must report it to their HR Business
+Partner or directly to the VP of Human Resources. Reports may also be submitted
+anonymously via the Ethics Hotline at 1-800-555-0199. Retaliation against anyone
+who reports harassment in good faith is strictly prohibited and is itself a
+terminable offence.
+
+Section 4.0 — Conflicts of Interest
+Employees must disclose any personal, financial, or professional relationship that
+could create a conflict of interest with NovaTech's business activities. Disclosures
+must be submitted in writing to the employee's manager and the Legal department
+within 30 days of the conflict arising.
+
+Section 5.0 — Confidentiality
+Employees must protect NovaTech's confidential information including trade secrets,
+client lists, financial data, product roadmaps, and proprietary technology. This
+obligation continues for 2 years after the employee's last day of employment.
+Sharing confidential information with competitors or unauthorized third parties is
+grounds for immediate termination and legal action.
+
+Section 6.0 — Disciplinary Procedures
+
+Section 6.1 — Progressive Discipline
+Minor violations are subject to progressive discipline: verbal warning, written
+warning, final written warning, and termination. The severity and frequency of
+violations determine which stage of discipline applies.
+
+Section 6.2 — Summary Dismissal
+Serious violations including theft, fraud, physical violence, harassment, deliberate
+data breach, or sharing confidential information with competitors may result in
+immediate termination without the progressive discipline process.
+
+Section 7.0 — Anti-Retaliation
+Any employee found to have retaliated against a colleague for making a good-faith
+report of a policy violation will face immediate disciplinary action up to and
+including termination, regardless of whether the original complaint was sustained.

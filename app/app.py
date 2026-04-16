@@ -704,7 +704,7 @@ with st.sidebar:
                 st.rerun()
 
     st.divider()
-    st.caption("SAGE · INFO7375 Final Project · Group 1")
+    st.caption("SAGE · Secure AI Governance Engine")
 
 
 # ── Main: page header ─────────────────────────────────────────────────────────

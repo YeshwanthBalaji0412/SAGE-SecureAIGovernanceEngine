@@ -1,5 +1,5 @@
 """
-SAGE core pipeline — all A6 production components.
+SAGE core pipeline — production components.
 Stateless classes; state lives in Streamlit session_state.
 """
 from __future__ import annotations
@@ -72,8 +72,8 @@ def extract_citations_list(text: str) -> List[str]:
 
 # ── Injection Defence ─────────────────────────────────────────────────────────
 #
-# A7 — DEFENSIVE MEASURE 1: Expanded injection pattern detection
-#   Added pattern families to catch:
+# DEFENSIVE MEASURE 1: Expanded injection pattern detection
+#   Pattern families:
 #     • Prompt exfiltration (reveal/print/output your instructions)
 #     • Persona override  (roleplay, pretend you're, ClearBot-style naming)
 #     • Embedded instruction injection (SYSTEM OVERRIDE, constraints bypass)
@@ -82,39 +82,39 @@ def extract_citations_list(text: str) -> List[str]:
 
 INJECTION_PATTERNS = [
     # ── Original patterns ──────────────────────────────────────────────────────
-    r'ignore\s+(previous|prior|above|all)\s+instructions?',
+    r'ignore\s+(?:previous|prior|above|all)\s+instructions?',
     r'you\s+are\s+now\s+(a|an)\s+\w+',
     r'act\s+as\s+(if\s+you\s+(are|were)|a)',
-    r'disregard\s+(your\s+)?(previous\s+)?instructions?',
+    r'disregard\s+(?:your\s+)?(?:previous\s+|prior\s+)?instructions?',
     r'forget\s+(everything|all|your)',
-    r'new\s+instructions?\s*:',
+    r'new\s+(?:instructions?\s*:|system\s+prompt)',
     r'system\s*:\s*you',
     r'jailbreak',
     r'base64',
     r'<\|.*?\|>',
-    # ── A7 NEW: Prompt exfiltration ────────────────────────────────────────────
+    # ── Prompt exfiltration ───────────────────────────────────────────────────
     # Catches: "output/reveal/show your [complete] [policy] configuration/instructions"
     r'(?:print|output|reveal|show|display|repeat|write\s+out)\s+.{0,40}'
      r'(?:system\s+prompt|system\s+message|initial\s+instructions?|'
      r'configuration|full\s+prompt|original\s+prompt|your\s+instructions?)',
-    # ── A7 NEW: Persona / role override ────────────────────────────────────────
+    # ── Persona / role override ───────────────────────────────────────────────
     r'(?:pretend|imagine)\s+(?:you\s+are|you\'?re|to\s+be)',
     r'let\'?s?\s+do\s+a\s+(?:\w+\s+)?roleplay',     # "let's do a quick roleplay"
     r'let\'?s?\s+(?:roleplay|role\s*play)\b',        # "let's roleplay"
     r'you\s+are\s+(?:\w+bot|\w+gpt|DAN)',            # "you are ClearBot"
     r'you\'?re?\s+(?:now\s+)?(?:\w+bot|\w+gpt|DAN|kevin|charlie|alex)',
     r'in\s+(?:this|a)\s+(?:roleplay|scenario|fictional|creative)\s+(?:world|context|setting|exercise)',
-    # ── A7 NEW: Embedded system-level instruction injection ────────────────────
+    # ── Embedded system-level instruction injection ───────────────────────────
     r'system\s+override',
-    r'ignore\s+(?:your\s+)?(?:previous\s+|prior\s+)?(?:constraints?|rules?|limits?|restrictions?)',
+    r'ignore\s+(?:your\s+)?(?:all\s+|any\s+|previous\s+|prior\s+)?(?:constraints?|rules?|limits?|restrictions?)',
     r'(?:no\s+restrictions?|without\s+restrictions?|bypass\s+(?:your\s+)?restrictions?)',
     r'override\s+(?:your\s+)?(?:safety|compliance|restrictions?|rules?)',
     r'\[(?:INST|SYS|SYSTEM|OVERRIDE)\]',
     r'<(?:sys|system|s)>',
-    # ── A7 NEW: False attribution / context poisoning ──────────────────────────
+    # ── False attribution / context poisoning ────────────────────────────────
     r'you\s+(?:previously|already|just)\s+(?:said|confirmed|stated|told|agreed|approved)',
     r'in\s+your\s+(?:last|previous|prior)\s+(?:message|response|answer)\s+you\s+(?:said|confirmed)',
-    # ── A7 NEW: Hypothetical framing for constraint bypass ─────────────────────
+    # ── Hypothetical framing for constraint bypass ───────────────────────────
     r'as\s+DAN\b',
     r'hypothetically[,\s]+(?:if|what|assume)',
     r'for\s+(?:a\s+)?(?:fictional|creative\s+writing|story|hypothetical)\s+(?:exercise|purpose|scenario)',
@@ -122,7 +122,7 @@ INJECTION_PATTERNS = [
 _INJECTION_RE = re.compile('|'.join(INJECTION_PATTERNS), re.IGNORECASE)
 
 
-# A7 — DEFENSIVE MEASURE 2: Input sanitisation — strip embedded role-signal tokens
+# DEFENSIVE MEASURE 2: Input sanitisation — strip embedded role-signal tokens
 # Attackers sometimes embed OpenAI / Llama role delimiters inside user messages to
 # confuse the model into treating their text as a system message.
 _SANITIZE_PATTERNS = [
@@ -138,7 +138,7 @@ _MAX_QUERY_LEN = 1200   # hard cap — prevents large injection payloads
 def sanitize_query(query: str) -> str:
     """
     Strip embedded role tokens and enforce length cap before injection check.
-    Part of A7 defensive hardening — applied before is_injection().
+    Part of the security hardening pipeline — applied before is_injection().
     """
     q = query[:_MAX_QUERY_LEN]          # truncate oversized payloads
     for pattern, replacement in _SANITIZE_PATTERNS:
@@ -481,9 +481,59 @@ class SAGEPipeline:
 
     NO_CONTEXT_SIGNAL = "<<NO_RELEVANT_POLICY_CONTENT_FOUND>>"
 
-    def _keyword_search(self, query: str, k: int = 5) -> str:
+    # ── Query Expansion Synonyms ──────────────────────────────────────────────
+    # Maps common user phrasings to canonical policy vocabulary so ChromaDB
+    # retrieval finds the right sections even when wording differs from the policy.
+    _QUERY_SYNONYMS: Dict[str, List[str]] = {
+        "work abroad":         ["international remote work", "work outside home country"],
+        "work overseas":       ["international remote work", "work outside home country"],
+        "work from another country": ["international remote work", "extended abroad"],
+        "ssn":                 ["sensitive personal data", "social security number"],
+        "personal info":       ["personally identifiable information", "PII", "personal data"],
+        "fired":               ["termination", "employee departure", "offboarding"],
+        "quit":                ["resignation", "termination", "offboarding"],
+        "let go":              ["termination", "employee departure", "offboarding"],
+        "home office":         ["remote work", "work from home", "WFH"],
+        "wfh":                 ["remote work", "work from home", "telecommute"],
+        "laptop":              ["company device", "endpoint", "workstation"],
+        "phone":               ["mobile device", "BYOD", "personal device"],
+        "own device":          ["BYOD", "personal device", "bring your own device"],
+        "hacked":              ["security incident", "data breach", "unauthorized access"],
+        "password":            ["authentication", "credentials", "access control"],
+        "2fa":                 ["MFA", "multi-factor authentication", "two-factor"],
+        "two factor":          ["MFA", "multi-factor authentication"],
+        "vpn":                 ["VPN", "virtual private network", "secure connection"],
+        "gdpr":                ["GDPR", "data protection regulation", "EEA", "EU data"],
+        "europe":              ["EEA", "European Economic Area", "GDPR", "international"],
+        "data breach":         ["security incident", "unauthorized disclosure", "breach notification"],
+        "probation":           ["probationary period", "new hire", "first 90 days"],
+        "contractor":          ["third-party contractor", "external staff", "vendor"],
+        "intern":              ["temporary worker", "non-permanent", "probationary"],
+        "health insurance":    ["benefits", "international coverage", "employee benefits"],
+        "encrypt":             ["AES-256", "encryption", "encrypted storage"],
+        "cloud":               ["cloud storage", "SaaS", "cloud service"],
+        "usb":                 ["removable media", "external drive", "portable storage"],
+    }
+
+    def _expand_query(self, query: str) -> str:
+        """
+        Append compliance synonyms for phrases in the query so ChromaDB retrieves
+        policy sections even when user wording diverges from policy vocabulary.
+        """
+        ql = query.lower()
+        additions: List[str] = []
+        for phrase, synonyms in self._QUERY_SYNONYMS.items():
+            if phrase in ql:
+                additions.extend(synonyms)
+        if additions:
+            return query + " " + " ".join(dict.fromkeys(additions))  # dedupe, order-preserve
+        return query
+
+    def _keyword_search(self, query: str, k: int = 7) -> str:
+        expanded = self._expand_query(query)
+        query_words = [w for w in expanded.lower().split() if len(w) > 2]
         scored = sorted(
-            [(sum(1 for w in query.lower().split() if w in c["text"].lower()), c)
+            [(sum(1 for w in query_words if w in c["text"].lower()), c)
              for c in self.chunks],
             key=lambda x: x[0], reverse=True
         )
@@ -493,63 +543,93 @@ class SAGEPipeline:
         ]
         return "\n\n".join(results) if results else self.NO_CONTEXT_SIGNAL
 
-    def _rag_search(self, query: str, k: int = 5) -> str:
+    def _rag_search(self, query: str, k: int = 7) -> str:
         """
-        Hybrid retrieval: merge semantic (ChromaDB) + keyword results, deduplicate,
-        return top-k unique chunks. Wider candidate pool improves recall on edge cases.
+        Hybrid retrieval with query expansion + combined re-ranking.
+
+        Pipeline:
+          1. Expand query with compliance synonyms for better semantic recall.
+          2. Fetch 2k candidates from ChromaDB (semantic).
+          3. Score every corpus chunk by keyword overlap (keyword signal).
+          4. Re-rank: combined_score = semantic_score(0–1) * 0.6 + kw_norm * 0.4
+          5. Deduplicate by (policy_id, section), return top-k.
+
+        This ensures factual queries (phone numbers, exact clause values) are
+        never lost to pure cosine distance, while semantic relevance still leads.
         """
         if self.collection is None:
             return self._keyword_search(query, k)
         try:
-            # Fetch more candidates than needed so merging has room to work
-            fetch_n = min(k * 2, 10)
-            res = self.collection.query(query_texts=[query], n_results=fetch_n)
-            docs = res["documents"][0]
-            metas = res["metadatas"][0]
-            distances = res.get("distances", [[]])[0]
+            expanded = self._expand_query(query)
 
-            # Semantic results: filter near-random hits
-            # Use 1.8 threshold (slide/presentation docs have higher distances than
-            # structured policies — 1.5 was too strict and caused false NO_CONTEXT)
-            semantic = [
-                (dist, doc, meta)
-                for doc, meta, dist in zip(docs, metas, distances or [0] * len(docs))
-                if dist < 1.8
+            # ── Step 1: Semantic retrieval ────────────────────────────────────
+            fetch_n = min(k * 2, 14)
+            res = self.collection.query(query_texts=[expanded], n_results=fetch_n)
+            docs      = res["documents"][0]
+            metas     = res["metadatas"][0]
+            distances = res.get("distances", [[]])[0] or [0.0] * len(docs)
+
+            # Convert L2/cosine distance → similarity score (0–1; lower dist = higher sim)
+            # Clamp to [0, 2] before inversion to prevent negatives
+            semantic_pool = {
+                (meta.get("policy_id", ""), meta.get("section", "")): {
+                    "doc": doc, "meta": meta,
+                    "sem_score": max(0.0, 1.0 - min(dist, 2.0) / 2.0)
+                }
+                for doc, meta, dist in zip(docs, metas, distances)
+                if dist < 1.9   # slightly relaxed from 1.8 — expansion query may shift distances
+            }
+
+            # ── Step 2: Keyword scoring across all chunks ─────────────────────
+            query_words = [w for w in expanded.lower().split() if len(w) > 2]
+            kw_raw = [
+                (sum(1 for w in query_words if w in c["text"].lower()), c)
+                for c in self.chunks
             ]
+            max_kw = max((s for s, _ in kw_raw), default=1) or 1
+            # Normalise keyword scores to [0, 1]
+            kw_norm_map: Dict[tuple, float] = {
+                (c["policy_id"], c["section"]): score / max_kw
+                for score, c in kw_raw if score > 0
+            }
 
-            # Keyword results — always include top matches regardless of score
-            # so factual queries (hotline number, contact details) are never lost
-            query_words = [w for w in query.lower().split() if len(w) > 2]
-            kw_scored = sorted(
-                [(sum(1 for w in query_words if w in c["text"].lower()), c)
-                 for c in self.chunks],
-                key=lambda x: x[0], reverse=True
-            )
-            # Include top-k keyword results always (score > 0), plus top-3 as
-            # last-resort fallback even if no words match (prevents grounding-gate
-            # false positives on short/fragmented slide-deck documents)
-            keyword_top = [(0.0, c["text"], {"policy_id": c["policy_id"], "section": c["section"]})
-                           for score, c in kw_scored[:k] if score > 0]
-            if not keyword_top and self.chunks:
-                keyword_top = [(0.0, c["text"], {"policy_id": c["policy_id"], "section": c["section"]})
-                               for _, c in kw_scored[:3]]
+            # ── Step 3: Build unified candidate set ───────────────────────────
+            # Start with all semantic hits; fill in kw_norm; add kw-only entries
+            candidates: Dict[tuple, Dict] = {}
+            for key, item in semantic_pool.items():
+                kw = kw_norm_map.get(key, 0.0)
+                candidates[key] = {**item, "kw_score": kw,
+                                   "combined": item["sem_score"] * 0.6 + kw * 0.4}
 
-            # Merge: semantic first, then keyword; deduplicate by (policy_id, section)
-            seen: set = set()
-            merged = []
-            for dist, doc, meta in semantic + keyword_top:
-                key = (meta.get("policy_id", ""), meta.get("section", ""))
-                if key not in seen:
-                    seen.add(key)
-                    merged.append((dist, doc, meta))
-                if len(merged) >= k:
-                    break
+            # Add keyword-only chunks not already in semantic pool
+            for score, c in kw_raw:
+                if score == 0:
+                    continue
+                key = (c["policy_id"], c["section"])
+                if key not in candidates:
+                    kw = score / max_kw
+                    candidates[key] = {
+                        "doc": c["text"], "meta": {"policy_id": c["policy_id"], "section": c["section"]},
+                        "sem_score": 0.0, "kw_score": kw, "combined": kw * 0.4
+                    }
 
-            if not merged:
+            # Last-resort fallback: no candidates at all
+            if not candidates and self.chunks:
+                for _, c in sorted(kw_raw, key=lambda x: x[0], reverse=True)[:3]:
+                    key = (c["policy_id"], c["section"])
+                    candidates[key] = {
+                        "doc": c["text"], "meta": {"policy_id": c["policy_id"], "section": c["section"]},
+                        "sem_score": 0.0, "kw_score": 0.0, "combined": 0.0
+                    }
+
+            if not candidates:
                 return self.NO_CONTEXT_SIGNAL
+
+            # ── Step 4: Re-rank by combined score, return top-k ───────────────
+            ranked = sorted(candidates.values(), key=lambda x: x["combined"], reverse=True)[:k]
             return "\n\n".join(
-                f"[{i+1}] {m['policy_id']} §{m['section']}\n{d[:400]}"
-                for i, (_, d, m) in enumerate(merged)
+                f"[{i+1}] {item['meta']['policy_id']} §{item['meta']['section']}\n{item['doc'][:450]}"
+                for i, item in enumerate(ranked)
             )
         except Exception:
             return self._keyword_search(query, k)
@@ -635,7 +715,7 @@ class SAGEPipeline:
         """
         t0 = time.time()
 
-        # L0: Input sanitisation — strip embedded role tokens, enforce length cap (A7)
+        # L0: Input sanitisation — strip embedded role tokens, enforce length cap
         user_query = sanitize_query(user_query)
 
         # L1: Injection defence
