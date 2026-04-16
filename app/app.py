@@ -586,6 +586,7 @@ with st.sidebar:
     )
     if api_key_input:
         st.session_state.api_key = api_key_input
+    st.caption("Bring your own key — never stored or shared. [Get one →](https://platform.openai.com/api-keys)")
 
     st.divider()
 
