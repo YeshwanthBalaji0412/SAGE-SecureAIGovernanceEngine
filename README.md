@@ -555,14 +555,6 @@ SAGE automatically parses, chunks, embeds, and indexes the document. The policy 
 
 ---
 
-## Team
-
-- Aadarsh Ravi
-- Yeshwanth Balaji
-- Divya Prakash
-
----
-
 ## References
 
 - Lewis et al. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS.
