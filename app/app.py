@@ -342,17 +342,44 @@ _REPORT_PHRASES = {"show report", "session report", "show stats", "show summary"
 # Domain-specific compliance terms only — no generic question words (who/what/when)
 # so that casual/nonsensical queries like "what am i doing to you" are caught.
 _COMPLIANCE_KW = {
+    # ── Universal ────────────────────────────────────────────────────────────
     "policy", "policies", "applies", "apply", "scope", "eligible", "eligib",
     "covered", "covers", "effective", "section", "rule", "regulation",
+    "approval", "compliance", "violation", "requirement", "prohibited",
+    "mandatory", "must", "shall", "authorized", "permit", "waiver",
+    "exception", "consent", "procedure", "guideline", "handbook",
+    "allowed", "permitted", "restrict", "obligat", "harass", "discriminat",
+    "termination", "disciplin", "conduct", "reimbursement", "report",
+    # ── TechNova — remote work, data privacy, information security ────────────
     "remote", "work", "vpn", "data", "pii", "privacy", "breach", "incident",
-    "mfa", "byod", "gdpr", "encrypt", "approval", "compliance", "laptop",
-    "international", "travel", "retention", "security", "access", "eea",
-    "password", "training", "contractor", "employee", "mdm", "probation",
-    "equipment", "reimbursement", "violation", "requirement", "report to",
-    "harass", "discriminat", "termination", "disciplin", "conduct", "leave",
+    "mfa", "byod", "gdpr", "encrypt", "laptop", "international", "travel",
+    "retention", "security", "access", "eea", "password", "training",
+    "contractor", "employee", "mdm", "probation", "equipment", "leave",
     "benefit", "insurance", "overtime", "exempt", "salary", "pto", "holiday",
-    "handbook", "procedure", "guideline", "prohibited", "mandatory", "must",
-    "shall", "authorized", "permit", "waiver", "exception", "consent",
+    # ── EduTrack — academic integrity, student privacy, IT acceptable use ─────
+    "student", "academic", "plagiar", "faculty", "transcript", "grade",
+    "gpa", "enrollment", "ferpa", "exam", "assignment", "cheating",
+    "fabricat", "chatgpt", "essay", "submiss", "parent", "directory",
+    "appeal", "research", "collusion", "copyright", "ai-generated",
+    "professor", "instructor", "course", "semester", "degree", "campus",
+    "tuition", "scholarship", "suspension", "expulsion", "offense",
+    # ── MedCore — PHI, HIPAA, workplace safety, staff conduct ─────────────────
+    "patient", "phi", "hipaa", "medical", "clinical", "ppe", "baa",
+    "nurse", "doctor", "workforce", "disclose", "login", "vendor",
+    "treatment", "payment", "minimum necessary", "mobile", "substance",
+    "drug", "alcohol", "eap", "gift", "conflict", "social media",
+    "needle", "exposure", "spill", "evacuation", "hazard", "incident",
+    # ── LaunchPad — IP, remote-first, code of conduct ─────────────────────────
+    "intellectual", "invention", "open source", "side project", "side app",
+    "weekend", "retaliat", "misconduct", "ip ", "cto", "equity", "venture",
+    "async", "stipend", "coworking", "offshore", "relocation", "founder",
+    "startup", "offsite", "onboarding", "repo", "contribut",
+    # ── RetailFlow — PCI, customer data, employee handbook, store safety ──────
+    "card", "payment", "skimming", "register", "shift", "cashier",
+    "refund", "customer", "seasonal", "shoplifter", "uniform", "schedule",
+    "attendance", "store", "pci", "transaction", "break", "loss prevention",
+    "ladder", "fire", "emergency", "associate", "badge", "tattoo",
+    "no-call", "no call", "swap", "discount", "void",
 }
 
 def _is_report_request(q: str) -> bool:
@@ -933,9 +960,10 @@ if query:
 
         elif _is_out_of_scope(q):
             msg = (
-                "I'm a compliance assistant — I can only answer questions about your "
-                "company's policies. Try asking about remote work, data privacy, "
-                "security requirements, or BYOD rules."
+                "I'm a compliance assistant — I can only answer questions grounded "
+                "in your organization's policy documents. Try asking about specific "
+                "rules, requirements, whether an activity is permitted, or what "
+                "happens in a particular scenario."
             )
             st.warning(msg)
             st.session_state.chat_history.append({"role": "assistant", "content": msg})
