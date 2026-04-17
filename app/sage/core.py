@@ -197,16 +197,28 @@ class ConfidenceScorer:
 
     def score(self, response: str) -> Dict:
         s, comp = 50, {}
+
         cits = extract_citation_count(response)
-        cp = min(cits * 8, 32);  comp["citations"]        = cp;  s += cp
+        cp = min(cits * 8, 32)
+        comp["citations"] = cp
+        s += cp
+
         rp = 10 if extract_risk_level(response) in ("High", "Medium", "Low") else 0
-        comp["risk_clarity"] = rp;  s += rp
+        comp["risk_clarity"] = rp
+        s += rp
+
         kp = min(sum(1 for k in self.COMPLIANCE_KW if k in response.lower()), 8)
-        comp["keyword_coverage"] = kp;  s += kp
+        comp["keyword_coverage"] = kp
+        s += kp
+
         cb = 5 if "POLICY TENSION" in response.upper() else 0
-        comp["conflict_bonus"] = cb;  s += cb
+        comp["conflict_bonus"] = cb
+        s += cb
+
         ap = min(sum(1 for a in self.AMBIGUITY_KW if a in response.lower()) * 15, 30)
-        comp["ambiguity_penalty"] = -ap;  s -= ap
+        comp["ambiguity_penalty"] = -ap
+        s -= ap
+
         final = max(0, min(100, s))
         return {
             "score": final,
@@ -244,6 +256,7 @@ BUILTIN_CONFLICT_RULES = [
      "description": "Policy allows extended international work approval but does not resolve the health-insurance gap.",
      "severity": "Medium"},
 ]
+
 
 class PolicyConflictDetector:
     def __init__(self, rules: List[Dict] | None = None):
@@ -414,17 +427,29 @@ class SeverityWeightedScorer:
         risk  = extract_risk_level(response)
         if risk in ("N/A", "Unknown"):
             return {"score": 0, "band": "N/A", "components": {}}
+
         comp = {}
         base = {"High": 40, "Medium": 20, "Low": 5}.get(risk, 10)
-        s    = base;  comp["risk_base"] = base
+        s = base
+        comp["risk_base"] = base
+
         n_pol = len(policies) if policies else max(1, extract_citation_count(response) // 2)
-        ep = max(0, n_pol - 1) * 15;  s += ep;  comp["extra_policies"] = ep
+        ep = max(0, n_pol - 1) * 15
+        s += ep
+        comp["extra_policies"] = ep
+
         il = 15 if any(k in combo for k in self.INTL_KW) else 0
-        s += il;  comp["international"] = il
+        s += il
+        comp["international"] = il
+
         de = 20 if any(k in combo for k in self.DATA_KW) else 0
-        s += de;  comp["data_exposure"] = de
+        s += de
+        comp["data_exposure"] = de
+
         ee = 10 if any(k in combo for k in self.EEA_KW) else 0
-        s += ee;  comp["eea_scope"] = ee
+        s += ee
+        comp["eea_scope"] = ee
+
         final = max(0, min(100, s))
         band  = ("Critical" if final >= 80 else
                  "High"     if final >= 60 else

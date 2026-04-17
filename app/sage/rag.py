@@ -200,6 +200,7 @@ _POLICY_SIGNALS = [
     r'\bviolation\b', r'\bmanagement\b', r'\bauthorization\b',
 ]
 
+
 def validate_policy_document(text: str) -> dict:
     """
     Check if a document looks like a policy document.
@@ -505,6 +506,7 @@ Section 7: Enforcement
     ),
 }
 
+
 MEDCORE_POLICIES_TEXT = {
     "POL-PHI-2025": (
         "Patient Health Information Policy",
@@ -628,6 +630,7 @@ Section 6: Substance Use
     ),
 }
 
+
 LAUNCHPAD_POLICIES_TEXT = {
     "POL-RF-2025": (
         "Remote-First Work Policy",
@@ -750,6 +753,7 @@ Section 6: Consequences
 """,
     ),
 }
+
 
 RETAILFLOW_POLICIES_TEXT = {
     "POL-CD-2025": (

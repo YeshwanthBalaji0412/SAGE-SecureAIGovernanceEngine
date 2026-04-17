@@ -34,6 +34,7 @@ MANDATORY REASONING CHECKLIST (verify each before responding):
   · DP §5.4  — DPO consultation for any new customer PII data flow
 """
 
+
 EDUCATION_EXTRA = """
 CRITICAL ELIGIBILITY CHECKS — apply BEFORE any other reasoning:
 
@@ -64,6 +65,7 @@ MANDATORY REASONING CHECKLIST:
   · IU-2025 §5  — network monitoring clause and no-privacy expectation
 """
 
+
 HEALTHCARE_EXTRA = """
 CRITICAL ELIGIBILITY CHECKS — apply BEFORE any other reasoning:
 
@@ -93,6 +95,7 @@ MANDATORY REASONING CHECKLIST:
   · WS-2025 §3    — correct PPE for the clinical area/precaution level
   · SC-2025 §4    — social media restrictions (no patient photos, no condition disclosure)
 """
+
 
 STARTUP_EXTRA = """
 CRITICAL ELIGIBILITY CHECKS — apply BEFORE any other reasoning:
@@ -125,6 +128,7 @@ MANDATORY REASONING CHECKLIST:
   · CC-2025 §4.2 — retaliation is treated as seriously as the original violation
 """
 
+
 RETAIL_EXTRA = """
 CRITICAL ELIGIBILITY CHECKS — apply BEFORE any other reasoning:
 
@@ -156,6 +160,7 @@ MANDATORY REASONING CHECKLIST:
   · CD-2025 §6   — breach escalation timing (30 minutes)
   · SS-2025 §4   — incident reporting before end of shift
 """
+
 
 GENERIC_EXTRA = """
 CRITICAL ELIGIBILITY CHECK — apply BEFORE any other reasoning:

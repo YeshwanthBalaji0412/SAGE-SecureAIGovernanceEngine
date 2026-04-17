@@ -279,7 +279,7 @@ hr { border-color: rgba(99,102,241,0.1) !important; margin: 8px 0 !important; }
 
 # Module-level counter — reset to [0] on every Streamlit re-run (script re-executes top-to-bottom).
 # Ensures render_report()'s download buttons get unique keys even when called multiple times per cycle.
-_report_render_n = [0]  # type: ignore
+_report_render_n = [0]
 
 RISK_COLOR = {
     "High": "#f87171", "Medium": "#fbbf24", "Low": "#4ade80",
@@ -330,6 +330,19 @@ def _score_bar(value: int, color: str) -> str:
         f'<div style="width:{value}%;height:6px;border-radius:4px;'
         f'background:{color};"></div></div>'
     )
+
+
+def _start_new_chat():
+    """Start a fresh chat session, swapping in a new per-session audit log."""
+    new_sess = SAGEConversationSession()
+    new_logger = st.session_state.pipeline.new_session_logger(new_sess.session_id)
+    st.session_state.chat_history     = []
+    st.session_state.session          = new_sess
+    st.session_state.audit_logger     = new_logger
+    st.session_state.pending_question = ""
+    st.session_state["_load_msg"]     = ""
+    st.rerun()
+
 
 # Exact-match phrases that mean the user wants the session report dashboard.
 # Single words like "report" or "audit" only trigger when the WHOLE query is
@@ -796,19 +809,7 @@ with st.sidebar:
                 st.rerun()
         with cb:
             if st.button("✦ New Chat", use_container_width=True):
-                new_sess = SAGEConversationSession()
-                pipeline = st.session_state.pipeline
-                if hasattr(pipeline, "new_session_logger"):
-                    new_logger = pipeline.new_session_logger(new_sess.session_id)
-                else:
-                    new_logger = AuditLogger(session_id=new_sess.session_id)
-                    pipeline.audit_logger = new_logger
-                st.session_state.chat_history     = []
-                st.session_state.session          = new_sess
-                st.session_state.audit_logger     = new_logger
-                st.session_state.pending_question = ""
-                st.session_state["_load_msg"]     = ""
-                st.rerun()
+                _start_new_chat()
 
 
 # ── Main: page header ─────────────────────────────────────────────────────────
@@ -847,14 +848,7 @@ if st.session_state.corpus_loaded and st.session_state.chat_history:
     _, col_nc = st.columns([5, 1])
     with col_nc:
         if st.button("✦ New Chat", type="primary", use_container_width=True):
-            new_sess = SAGEConversationSession()
-            new_logger = st.session_state.pipeline.new_session_logger(new_sess.session_id)
-            st.session_state.chat_history     = []
-            st.session_state.session          = new_sess
-            st.session_state.audit_logger     = new_logger
-            st.session_state.pending_question = ""
-            st.session_state["_load_msg"]     = ""
-            st.rerun()
+            _start_new_chat()
 
 
 # ── Welcome screen (no corpus loaded) ────────────────────────────────────────
