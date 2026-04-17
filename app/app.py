@@ -350,6 +350,7 @@ _COMPLIANCE_KW = {
     "exception", "consent", "procedure", "guideline", "handbook",
     "allowed", "permitted", "restrict", "obligat", "harass", "discriminat",
     "termination", "disciplin", "conduct", "reimbursement", "report",
+    "contact", "phone", "hotline", "office", "address", "email",
     # ── TechNova — remote work, data privacy, information security ────────────
     "remote", "work", "vpn", "data", "pii", "privacy", "breach", "incident",
     "mfa", "byod", "gdpr", "encrypt", "laptop", "international", "travel",
@@ -404,6 +405,21 @@ _GENERAL_KNOWLEDGE_KW = {
     "recommend a", "best movie", "what is 2 + 2",
 }
 
+# Contact-info queries must bypass the keyword check — they are always policy-grounded
+# (asking where to report, who to call, office locations in the uploaded document).
+_CONTACT_BYPASS_KW = {
+    "phone number", "phone num",
+    "office located", "office location",
+    "where is the", "where is ",
+    "email address",
+    "how to contact", "contact number",
+    "contact information", "contact details",
+    "address of", "mailing address", "office address",
+    "hotline number",
+    "fax number", "zip code", "postal code",
+    "reach the office", "reach out to", "get in touch",
+}
+
 def _is_out_of_scope(q: str) -> bool:
     ql = q.lower()
     words = ql.split()
@@ -412,6 +428,9 @@ def _is_out_of_scope(q: str) -> bool:
     # Block pure general knowledge requests first
     if any(kw in ql for kw in _GENERAL_KNOWLEDGE_KW):
         return True
+    # Contact/location lookups are always policy-grounded — let them through
+    if any(sig in ql for sig in _CONTACT_BYPASS_KW):
+        return False
     return not any(kw in ql for kw in _COMPLIANCE_KW)
 
 
@@ -543,6 +562,7 @@ def load_pipeline(api_key: str, uploaded_files=None, company_name: str = ""):
             collection=collection,
             chunks=chunks,
             conflict_rules=None,
+            company_name=company_name or "your organization",
         )
 
         st.session_state.update({
@@ -735,6 +755,7 @@ with st.sidebar:
                             collection=collection,
                             chunks=chunks,
                             conflict_rules=None,
+                            company_name=org["name"],
                         )
                         st.session_state.update({
                             "pipeline": pipeline, "session": SAGEConversationSession(),

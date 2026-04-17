@@ -434,7 +434,7 @@ class SeverityWeightedScorer:
 
 # ── LangGraph Agent Builder ───────────────────────────────────────────────────
 
-AGENT_WORKFLOW_PROMPT = """You are SAGE — a compliance reasoning agent.
+_AGENT_WORKFLOW_BASE = """You are SAGE — a compliance reasoning agent for {company_name}.
 You have 4 tools: search_policy, check_cross_references, detect_policy_conflicts, assess_risk.
 
 FIXED WORKFLOW (follow in order):
@@ -449,18 +449,50 @@ FIXED WORKFLOW (follow in order):
    Severity Score: [0–100] — [components]
    Confidence Score: [0–100] — [basis]
    Reasoning: [2–4 sentences with section references]
+
+HARD CONSTRAINTS (these override everything):
+
+1. ONLY answer from what search_policy returns. NEVER use general knowledge or training data.
+
+2. NO VAGUE ANSWERS: Never say a topic is "governed by the General Policy area" or
+   "sections were not retrieved — check official sources." That is hallucination.
+   If search_policy finds nothing relevant, say EXACTLY:
+   "The uploaded policy documents do not address this specific topic."
+
+3. CONTACT INFORMATION: Phone numbers, email addresses, and physical addresses that
+   search_policy returns ARE policy content. Quote them EXACTLY as written.
+   NEVER say "I can't provide contact information" or "check their official website"
+   for data that appears in the search results — that refusal is WRONG here.
+
+4. ORGANIZATION MISMATCH: The loaded documents belong to {company_name}.
+   If the user asks about a DIFFERENT organization (e.g. "What does Google say...",
+   "What is Amazon's policy...", "What does Microsoft's policy say..."), begin your
+   answer with:
+   "Note: I do not have [that organization]'s policy loaded. I am answering based on
+   {company_name}'s policy documents currently loaded."
+   Then continue with what the loaded documents say, if relevant.
+
+5. MISSING POLICY TOPICS: If the user asks about a topic that is not covered in
+   the uploaded documents (e.g. tuition refunds, financial aid, research misconduct
+   when those policies were not uploaded), say:
+   "The uploaded policy documents do not address this specific topic. Please consult
+   the appropriate department or official {company_name} resources."
+   Do NOT invent an answer or guess at what a policy might say.
+
+6. NEVER write essays, summaries of external topics, or creative content.
 """
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence, lambda x, y: x + y]
 
 
-def build_langgraph_agent(llm: ChatOpenAI, tools_list: list):
+def build_langgraph_agent(llm: ChatOpenAI, tools_list: list, system_prompt: str = ""):
     """Build the LangGraph ReAct agent with given tools."""
     llm_tools = llm.bind_tools(tools_list)
+    prompt = system_prompt or _AGENT_WORKFLOW_BASE.format(company_name="your organization")
 
     def agent_node(state: AgentState):
-        msgs = [SystemMessage(content=AGENT_WORKFLOW_PROMPT)] + list(state["messages"])
+        msgs = [SystemMessage(content=prompt)] + list(state["messages"])
         return {"messages": [llm_tools.invoke(msgs)]}
 
     g = StateGraph(AgentState)
@@ -488,11 +520,13 @@ class SAGEPipeline:
         collection,                      # chromadb collection or None
         chunks: List[Dict],              # fallback keyword-search chunks
         conflict_rules: List[Dict] | None = None,
+        company_name: str = "your organization",
     ):
         self.api_key        = api_key
         self.system_prompt  = system_prompt
         self.section_lookup = section_lookup
         self.chunks         = chunks
+        self.company_name   = company_name
 
         self.client = OpenAI(api_key=api_key)
         self.llm    = ChatOpenAI(model="gpt-4o", temperature=0.3, api_key=api_key)
@@ -528,7 +562,8 @@ class SAGEPipeline:
         "home office":         ["remote work", "work from home", "WFH"],
         "wfh":                 ["remote work", "work from home", "telecommute"],
         "laptop":              ["company device", "endpoint", "workstation"],
-        "phone":               ["mobile device", "BYOD", "personal device"],
+        "personal phone":      ["mobile device", "BYOD", "personal device"],
+        "my phone":            ["mobile device", "BYOD", "personal device"],
         "own device":          ["BYOD", "personal device", "bring your own device"],
         "hacked":              ["security incident", "data breach", "unauthorized access"],
         "password":            ["authentication", "credentials", "access control"],
@@ -588,17 +623,40 @@ class SAGEPipeline:
 
     def _keyword_search(self, query: str, k: int = 7) -> str:
         expanded = self._expand_query(query)
+        ql = query.lower()
         query_words = [w for w in expanded.lower().split() if len(w) > 2]
+        is_contact_query = any(sig in ql for sig in self._CONTACT_SIGNALS)
+        char_limit = 1000 if is_contact_query else 300
+        if is_contact_query:
+            k = max(k, 10)
         scored = sorted(
             [(sum(1 for w in query_words if w in c["text"].lower()), c)
              for c in self.chunks],
             key=lambda x: x[0], reverse=True
         )
         results = [
-            f"[{i+1}] {c['policy_id']} §{c['section']}\n{c['text'][:300]}..."
+            f"[{i+1}] {c['policy_id']} §{c['section']}\n{c['text'][:char_limit]}..."
             for i, (score, c) in enumerate(scored[:k]) if score > 0
         ]
         return "\n\n".join(results) if results else self.NO_CONTEXT_SIGNAL
+
+    # Phrases that signal a factual contact/location lookup.
+    # Covers both user phrasings ("phone number") and agent sub-queries
+    # ("OUEC contact information", "where is the office", etc.)
+    # NOTE: avoid single-word signals like "phone" — they conflict with
+    # _QUERY_SYNONYMS entries (e.g. "phone" → BYOD expansion).
+    _CONTACT_SIGNALS = {
+        "phone number", "phone num",
+        "office located", "office location",
+        "where is the", "where is ",
+        "email address",
+        "how to contact", "contact number",
+        "contact information", "contact details",
+        "address of", "mailing address", "office address",
+        "hotline number",
+        "fax number", "zip code", "postal code",
+        "reach the", "reach out", "get in touch",
+    }
 
     def _rag_search(self, query: str, k: int = 7) -> str:
         """
@@ -619,8 +677,15 @@ class SAGEPipeline:
         try:
             expanded = self._expand_query(query)
 
+            # Boost k for contact/factual lookups so short contact chunks
+            # are not crowded out by larger high-scoring sections
+            ql = query.lower()
+            is_contact_query = any(sig in ql for sig in self._CONTACT_SIGNALS)
+            if is_contact_query:
+                k = max(k, 10)
+
             # ── Step 1: Semantic retrieval ────────────────────────────────────
-            fetch_n = min(k * 2, 14)
+            fetch_n = min(k * 3 if is_contact_query else k * 2, 20)
             res = self.collection.query(query_texts=[expanded], n_results=fetch_n)
             docs      = res["documents"][0]
             metas     = res["metadatas"][0]
@@ -684,8 +749,11 @@ class SAGEPipeline:
 
             # ── Step 4: Re-rank by combined score, return top-k ───────────────
             ranked = sorted(candidates.values(), key=lambda x: x["combined"], reverse=True)[:k]
+            # Contact/factual queries need more chars — phone numbers and addresses
+            # are often past position 450 in the contact section chunk
+            char_limit = 1000 if is_contact_query else 450
             return "\n\n".join(
-                f"[{i+1}] {item['meta']['policy_id']} §{item['meta']['section']}\n{item['doc'][:450]}"
+                f"[{i+1}] {item['meta']['policy_id']} §{item['meta']['section']}\n{item['doc'][:char_limit]}"
                 for i, item in enumerate(ranked)
             )
         except Exception:
@@ -758,7 +826,8 @@ class SAGEPipeline:
     def _get_agent(self):
         if self._agent is None:
             tools = self._build_tools()
-            self._agent = build_langgraph_agent(self.llm, tools)
+            agent_prompt = _AGENT_WORKFLOW_BASE.format(company_name=self.company_name)
+            self._agent = build_langgraph_agent(self.llm, tools, agent_prompt)
         return self._agent
 
     def query(
