@@ -390,11 +390,29 @@ def _is_report_request(q: str) -> bool:
         return True
     return any(phrase in ql for phrase in _REPORT_PHRASES)
 
+_GENERAL_KNOWLEDGE_KW = {
+    # Creative writing / general tasks
+    "write me", "write an essay", "write a", "essay about", "tell me a",
+    "explain to me", "give me a summary of", "summarize the history",
+    "what is the history", "help me write",
+    # Factual lookups unrelated to policy
+    "tuition fee", "tuition cost", "how much does", "what does it cost",
+    "who is the president", "who is the ceo", "who is the founder",
+    "what courses", "which courses", "list of courses", "what programs",
+    "what majors", "ranking of", "acceptance rate", "application deadline",
+    "weather", "capital of", "population of", "tell me a joke",
+    "recommend a", "best movie", "what is 2 + 2",
+}
+
 def _is_out_of_scope(q: str) -> bool:
-    words = q.lower().split()
+    ql = q.lower()
+    words = ql.split()
     if len(words) <= 2:
         return True
-    return not any(kw in q.lower() for kw in _COMPLIANCE_KW)
+    # Block pure general knowledge requests first
+    if any(kw in ql for kw in _GENERAL_KNOWLEDGE_KW):
+        return True
+    return not any(kw in ql for kw in _COMPLIANCE_KW)
 
 
 # ── Response renderer ─────────────────────────────────────────────────────────
@@ -953,8 +971,13 @@ if query:
             st.session_state.chat_history.append({"role": "assistant", "type": "report"})
 
         elif is_injection(q) or is_injection(sanitize_query(q)):
-            blocked_msg = "⛔ Your query was flagged as a potential prompt injection attempt and was not processed."
-            st.error(blocked_msg)
+            blocked_msg = (
+                "I'm a compliance assistant — I can only answer questions grounded "
+                "in your organization's policy documents. Try asking about specific "
+                "rules, requirements, whether an activity is permitted, or what "
+                "happens in a particular scenario."
+            )
+            st.warning(blocked_msg)
             st.session_state.chat_history.append({"role": "assistant", "content": blocked_msg,
                                                    "result": {"blocked": True, "response": blocked_msg}})
 

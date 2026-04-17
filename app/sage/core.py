@@ -545,6 +545,31 @@ class SAGEPipeline:
         "encrypt":             ["AES-256", "encryption", "encrypted storage"],
         "cloud":               ["cloud storage", "SaaS", "cloud service"],
         "usb":                 ["removable media", "external drive", "portable storage"],
+        # ── Contact / location lookups ────────────────────────────────────────
+        "phone number":        ["contact information", "contact details", "office phone", "telephone"],
+        "office located":      ["contact information", "office address", "headquarters", "location"],
+        "where is the":        ["contact information", "address", "location", "office"],
+        "email address":       ["contact information", "contact details", "email"],
+        "how to contact":      ["contact information", "reporting", "reach out"],
+        # ── Anonymous / confidential reporting ───────────────────────────────
+        "anonymous":           ["anonymous reporting", "ethics hotline", "confidential report", "hotline"],
+        "hotline":             ["anonymous reporting", "ethics hotline", "confidential reporting"],
+        "confidential":        ["anonymous reporting", "confidential report", "protected activity"],
+        # ── Protected characteristics (for nondiscrimination policies) ────────
+        "shared ancestry":     ["protected characteristics", "ancestry", "national origin", "ethnicity"],
+        "pregnancy":           ["protected characteristics", "sex", "pregnancy-related conditions",
+                                "sex stereotypes", "sex characteristics"],
+        "religion":            ["protected characteristics", "religious creed", "faith", "belief"],
+        "disability":          ["protected characteristics", "disability status", "accommodation"],
+        "veteran":             ["protected characteristics", "military status", "veteran status"],
+        "gender identity":     ["protected characteristics", "gender expression", "sex", "gender"],
+        "sexual orientation":  ["protected characteristics", "gender", "sex"],
+        # ── Reporting / investigation ─────────────────────────────────────────
+        "retaliation":         ["adverse action", "retaliation", "protected activity", "good faith report"],
+        "cooperate":           ["investigation", "cooperation", "disciplinary action", "separation"],
+        "investigation":       ["complaint procedure", "reporting", "ouec", "investigation process"],
+        "file a complaint":    ["reporting", "ouec", "complaint procedure", "discrimination report"],
+        "report discrimination": ["ouec", "contact information", "reporting procedure", "complaint"],
     }
 
     def _expand_query(self, query: str) -> str:
