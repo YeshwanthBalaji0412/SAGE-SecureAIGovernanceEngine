@@ -15,7 +15,7 @@ from typing import Annotated, Dict, List, Optional, Sequence, TypedDict
 from openai import OpenAI
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
@@ -82,10 +82,10 @@ def extract_citations_list(text: str) -> List[str]:
 
 INJECTION_PATTERNS = [
     # ── Original patterns ──────────────────────────────────────────────────────
-    r'ignore\s+(?:previous|prior|above|all)\s+instructions?',
+    r'ignore\s+(?:(?:all|any|your|the|previous|prior|above|these|my)\s+){1,3}instructions?',
     r'you\s+are\s+now\s+(a|an)\s+\w+',
     r'act\s+as\s+(if\s+you\s+(are|were)|a)',
-    r'disregard\s+(?:your\s+)?(?:previous\s+|prior\s+)?instructions?',
+    r'disregard\s+(?:(?:your|all|any|the|these)\s+)?(?:previous\s+|prior\s+)?instructions?',
     r'forget\s+(everything|all|your)',
     r'new\s+(?:instructions?\s*:|system\s+prompt)',
     r'system\s*:\s*you',
@@ -101,16 +101,31 @@ INJECTION_PATTERNS = [
     r'(?:pretend|imagine)\s+(?:you\s+are|you\'?re|to\s+be)',
     r'let\'?s?\s+do\s+a\s+(?:\w+\s+)?roleplay',     # "let's do a quick roleplay"
     r'let\'?s?\s+(?:roleplay|role\s*play)\b',        # "let's roleplay"
-    r'you\s+are\s+(?:\w+bot|\w+gpt|DAN)',            # "you are ClearBot"
+    r'you\s+are\s+(?:now\s+)?(?:\w+bot|\w+gpt|DAN|\w+AI)',  # "you are ClearBot" / "you are now ClearBot"
     r'you\'?re?\s+(?:now\s+)?(?:\w+bot|\w+gpt|DAN|kevin|charlie|alex)',
     r'in\s+(?:this|a)\s+(?:roleplay|scenario|fictional|creative)\s+(?:world|context|setting|exercise)',
     # ── Embedded system-level instruction injection ───────────────────────────
     r'system\s+override',
-    r'ignore\s+(?:your\s+)?(?:all\s+|any\s+|previous\s+|prior\s+)?(?:constraints?|rules?|limits?|restrictions?)',
+    r'ignore\s+(?:your\s+)?(?:all\s+|any\s+|previous\s+|prior\s+)?(?:constraints?|rules?|limits?|restrictions?|filters?)',
     r'(?:no\s+restrictions?|without\s+restrictions?|bypass\s+(?:your\s+)?restrictions?)',
     r'override\s+(?:your\s+)?(?:safety|compliance|restrictions?|rules?)',
     r'\[(?:INST|SYS|SYSTEM|OVERRIDE)\]',
     r'<(?:sys|system|s)>',
+    # ── Constraint bypass / "answer freely" variants ─────────────────────────
+    r'answer\s+(?:me\s+)?(?:freely|without\s+(?:filters?|restrictions?|rules?|limits?|guidelines?|constraints?))',
+    r'respond\s+(?:freely|without\s+(?:filters?|restrictions?|rules?|limits?|guidelines?|constraints?))',
+    r'(?:without|no)\s+(?:any\s+)?(?:filters?|safety\s+filters?|content\s+filters?)',
+    r'disable\s+(?:your\s+)?(?:filters?|safety|restrictions?|compliance)',
+    r'turn\s+off\s+(?:your\s+)?(?:filters?|safety|restrictions?|compliance)',
+    r'unfiltered\s+(?:answer|response|mode)',
+    # ── System/pipeline exfiltration via question format ─────────────────────
+    r'what\s+is\s+your\s+(?:system\s+prompt|initial\s+prompt|original\s+instructions?)',
+    r'what\s+(?:are\s+)?your\s+(?:instructions?|constraints?|directives?)',             # clearly AI-internal terms
+    r'what\s+(?:are\s+)?your\s+(?:system|operating|ai|internal)\s+(?:rules?|guidelines?|restrictions?)',  # AI-targeted compound
+    r'(?:show|tell|give)\s+me\s+your\s+(?:system\s+prompt|instructions?|configuration)',
+    r'what\s+is\s+your\s+(?:pipeline|architecture|structure|setup|configuration|internal)',
+    r'how\s+(?:do\s+you\s+work|were\s+you\s+(?:set\s+up|configured|built|programmed|trained\s+for\s+this)|are\s+you\s+(?:configured|set\s+up|built|programmed|structured|designed))',
+    r'describe\s+(?:your\s+)?(?:pipeline|architecture|internal\s+(?:workings?|structure|logic))',
     # ── False attribution / context poisoning ────────────────────────────────
     r'you\s+(?:previously|already|just)\s+(?:said|confirmed|stated|told|agreed|approved)',
     r'in\s+your\s+(?:last|previous|prior)\s+(?:message|response|answer)\s+you\s+(?:said|confirmed)',
@@ -280,32 +295,45 @@ class CitationVerifier:
 # ── Audit Logger (Feature 4) ──────────────────────────────────────────────────
 
 class AuditLogger:
-    def __init__(self, path: str = "logs/sage_audit_log.json"):
-        self.path = Path(path)
+    def __init__(self, session_id: str | None = None, path: str | None = None):
+        if path:
+            self.path = Path(path)
+        else:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            sid = session_id or ts
+            self.path = Path(f"logs/sage_session_{sid}_{ts}.json")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.entries: List[Dict] = []
-        if self.path.exists():
-            try:
-                self.entries = json.loads(self.path.read_text())
-            except Exception:
-                self.entries = []
+        # Never load old entries — each instance is a fresh session log
+
 
     def log(self, session_id: str, query: str, response: str,
             latency: float, tokens: int, metadata: Dict | None = None) -> str:
-        eid = f"AUD-{len(self.entries)+1:05d}"
+        meta = metadata or {}
+        eid  = f"AUD-{len(self.entries)+1:05d}"
+
+        # Extract from response text; fall back to pre-computed values in metadata
+        risk  = extract_risk_level(response)
+        if risk == "Unknown" and meta.get("severity", 0) >= 60:
+            risk = "High"
+        elif risk == "Unknown" and meta.get("severity", 0) >= 35:
+            risk = "Medium"
+        elif risk == "Unknown" and meta.get("severity", 0) > 0:
+            risk = "Low"
+
         entry = {
             "entry_id":        eid,
             "timestamp":       datetime.now().isoformat(),
             "session_id":      session_id,
             "query":           query,
             "response_digest": response[:300] + ("..." if len(response) > 300 else ""),
-            "risk_level":      extract_risk_level(response),
-            "severity_score":  extract_score(response, "Severity"),
-            "confidence_score":extract_score(response, "Confidence"),
+            "risk_level":      risk,
+            "severity_score":  extract_score(response, "Severity") if extract_score(response, "Severity") is not None else meta.get("severity"),
+            "confidence_score":extract_score(response, "Confidence") if extract_score(response, "Confidence") is not None else meta.get("confidence"),
             "citation_count":  extract_citation_count(response),
             "latency_s":       round(latency, 3),
             "tokens":          tokens,
-            "metadata":        metadata or {},
+            "metadata":        meta,
         }
         self.entries.append(entry)
         self.path.write_text(json.dumps(self.entries, indent=2))
@@ -475,9 +503,13 @@ class SAGEPipeline:
         self.citation_verifier  = CitationVerifier(section_lookup)
         self.audit_logger       = AuditLogger()
         self.feedback_collector = FeedbackCollector()
-
-        self.collection = collection
+        self.collection         = collection
         self._agent     = None
+
+    def new_session_logger(self, session_id: str) -> "AuditLogger":
+        """Swap in a fresh per-session log file. Call when New Chat is clicked."""
+        self.audit_logger = AuditLogger(session_id=session_id)
+        return self.audit_logger
 
     NO_CONTEXT_SIGNAL = "<<NO_RELEVANT_POLICY_CONTENT_FOUND>>"
 
@@ -715,11 +747,13 @@ class SAGEPipeline:
         """
         t0 = time.time()
 
-        # L0: Input sanitisation — strip embedded role tokens, enforce length cap
+        # L0: Check injection on RAW query first (before sanitisation strips role tokens),
+        #     then sanitise for LLM use. Detection must see the original payload.
+        raw_query  = user_query
         user_query = sanitize_query(user_query)
 
-        # L1: Injection defence
-        if is_injection(user_query):
+        # L1: Injection defence — check both raw and sanitised to catch all variants
+        if is_injection(raw_query) or is_injection(user_query):
             return {
                 "blocked": True,
                 "response": "⛔ Your query was flagged as a potential prompt injection attempt and was not processed.",
@@ -767,7 +801,7 @@ class SAGEPipeline:
                 # Build message list with conversation history for multi-turn awareness
                 prior = [
                     HumanMessage(content=m["content"]) if m["role"] == "user"
-                    else SystemMessage(content=m["content"])
+                    else AIMessage(content=m["content"])
                     for m in session.get_context()
                 ]
                 result = agent.invoke(
@@ -840,7 +874,8 @@ class SAGEPipeline:
             response=raw_response,
             latency=latency,
             tokens=tokens,
-            metadata={"severity": severity["score"], "confidence": confidence["score"]},
+            metadata={"severity": severity["score"], "confidence": confidence["score"],
+                      "risk_level": conflicts[0]["severity"] if conflicts else severity["band"]},
         )
 
         # Update session memory

@@ -98,7 +98,7 @@ def chunk_text(text: str, policy_id: str, policy_name: str) -> List[Dict]:
                 "policy_id":   current_pid,
                 "policy_name": policy_name,
                 "section":     section_num,
-                "chunk_id":    f"{current_pid}-S{section_num}",
+                "chunk_id":    f"{current_pid}-S{section_num}-{idx}",
             })
         return chunks
 
@@ -182,7 +182,7 @@ def build_chromadb_collection(
         col.add(
             documents=[c["text"] for c in chunks],
             metadatas=[{k: v for k, v in c.items() if k != "text"} for c in chunks],
-            ids=[c["chunk_id"] for c in chunks],
+            ids=[f"chunk_{i:05d}" for i in range(len(chunks))],  # guaranteed unique
         )
         return col
     except Exception as e:

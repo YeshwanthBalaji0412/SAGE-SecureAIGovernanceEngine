@@ -7,6 +7,7 @@
 
 # SAGE runtime artifacts
 app/logs/
+logs/
 sage_audit_log.json
 sage_feedback.json
 sage_a6_results.json
