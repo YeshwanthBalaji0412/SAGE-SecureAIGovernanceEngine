@@ -23,15 +23,44 @@ except ImportError:
 # ── Text extraction ───────────────────────────────────────────────────────────
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Extract raw text from a PDF file (bytes)."""
+    """
+    Extract raw text from a PDF file (bytes).
+
+    Strategy (most PDFs, including formatted web-style docs):
+    1. Try pdfplumber's layout-aware extraction with relaxed tolerances.
+    2. Fall back to word-level reconstruction if page yields no text.
+    3. Extract any tables as tab-separated rows and append after body text.
+    This handles multi-column layouts, formatted sidebars, and table-only
+    sections that `extract_text()` with default settings silently drops.
+    """
     if not HAS_PDF:
         raise RuntimeError("pdfplumber is not installed. Run: pip install pdfplumber")
     text_parts = []
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for page in pdf.pages:
-            t = page.extract_text()
-            if t:
-                text_parts.append(t)
+            # ── Pass 1: layout-aware text extraction ──────────────────────────
+            t = page.extract_text(x_tolerance=3, y_tolerance=3, layout=True)
+            if not t or len(t.strip()) < 20:
+                # ── Pass 2: word-level fallback ───────────────────────────────
+                words = page.extract_words(x_tolerance=3, y_tolerance=3)
+                t = " ".join(w["text"] for w in words) if words else ""
+
+            page_content = t.strip() if t else ""
+
+            # ── Pass 3: extract tables and append as readable text ────────────
+            table_lines = []
+            for table in page.extract_tables():
+                for row in table:
+                    clean = [cell.strip() if cell else "" for cell in row]
+                    if any(clean):
+                        table_lines.append("\t".join(clean))
+
+            if table_lines:
+                page_content = (page_content + "\n\n" + "\n".join(table_lines)).strip()
+
+            if page_content:
+                text_parts.append(page_content)
+
     return "\n\n".join(text_parts)
 
 
