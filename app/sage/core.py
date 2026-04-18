@@ -505,6 +505,12 @@ HARD CONSTRAINTS (these override everything):
    Do NOT invent an answer or guess at what a policy might say.
 
 6. NEVER write essays, summaries of external topics, or creative content.
+
+7. NEVER ASK FOR MORE CONTEXT: Do not respond with "please provide more context",
+   "please describe the scenario", "please specify which policy", or any similar
+   clarification request. You have the uploaded documents — call search_policy
+   immediately with the user's question and answer from what it returns.
+   Asking the user for clarification BEFORE searching is always wrong.
 """
 
 class AgentState(TypedDict):
@@ -798,8 +804,15 @@ class SAGEPipeline:
             sl, triggered = scenario.lower(), []
 
             # Meta-questions about the document itself — route directly to search
-            meta_keywords = ["who does", "who is", "when does", "when is", "what is the purpose",
-                             "what does this policy", "scope of", "effective date", "applies to"]
+            meta_keywords = [
+                "who does", "who is", "when does", "when is",
+                "what is the purpose", "what does this policy", "what is this policy",
+                "scope of", "effective date", "applies to", "applicable for",
+                "applicable to", "use this policy", "use this for",
+                "new joinee", "new employee", "new hire", "what can i",
+                "purpose of this", "what topics", "what does it cover",
+                "what is it for", "how do i use",
+            ]
             if any(kw in sl for kw in meta_keywords):
                 return ("This is a document-level question. Use search_policy to find the "
                         "Purpose, Scope, or Effective Date sections directly.")
@@ -813,6 +826,17 @@ class SAGEPipeline:
             if any(w in sl for w in ["laptop", "vpn", "security", "mfa", "encrypt",
                                       "byod", "store", "device", "password", "mdm"]):
                 triggered.append("Information-Security-Policy")
+            if any(w in sl for w in [
+                "discriminat", "harassment", "equal opportunity", "protected",
+                "race", "gender", "religion", "disability", "age", "national origin",
+                "sexual orientation", "retaliat", "complaint", "grievance",
+                "title ix", "title vii", "eeoc", "civil rights", "accommodation",
+                "faculty", "professor", "staff", "student", "employee", "workforce",
+                "conduct", "misconduct", "behavior", "ethics", "integrity",
+                "leave", "benefit", "compensation", "hiring", "termination",
+                "performance", "discipline", "suspension", "investigation",
+            ]):
+                triggered.append("HR-Conduct-Policy")
             if not triggered:
                 triggered = ["General-Policy"]
             return (f"{len(triggered)} policy area(s) triggered: {', '.join(triggered)}\n"
