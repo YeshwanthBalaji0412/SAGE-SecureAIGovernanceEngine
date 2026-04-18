@@ -458,94 +458,85 @@ def render_response(result: dict):
     sev  = result.get("severity",   {})
     conf = result.get("confidence", {})
 
-    # Answer text
+    # ── Answer text (always visible) ──────────────────────────────────────────
     answer = result.get("answer") or result.get("response", "")
     st.markdown(answer)
 
-    # Score / metadata strip
-    c1, c2, c3, c4 = st.columns([1.2, 1.4, 1.4, 2])
-
+    # ── Compact single-line status strip ──────────────────────────────────────
     risk_class = {"High": "r-high", "Medium": "r-medium", "Low": "r-low"}.get(risk, "r-na")
-    c1.markdown(
-        f"<div style='font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;"
-        f"letter-spacing:0.6px;margin-bottom:4px;'>Risk Level</div>"
-        f"<span class='{risk_class}' style='font-size:15px;'>{risk}</span>",
+    sev_v      = sev.get("score", 0)
+    sev_color  = RISK_COLOR.get(sev.get("band", "Unknown"), "#6b7280")
+    conf_v     = conf.get("score", 0)
+    sess       = st.session_state.get("session")
+    turn       = sess.turn_count if sess else "—"
+
+    st.markdown(
+        f"<div style='margin:8px 0 4px;font-size:12px;color:#3d4f6b;'>"
+        f"<span class='{risk_class}' style='font-size:12px;'>⬤ {risk}</span>"
+        f"<span style='color:#2d3d55;'>"
+        f" &nbsp;·&nbsp; Severity <b style='color:{sev_color};'>{sev_v}</b>/100"
+        f" &nbsp;·&nbsp; Confidence <b style='color:#6366f1;'>{conf_v}</b>/100"
+        f" &nbsp;·&nbsp; ⚡ {result.get('latency', 0)}s"
+        f" &nbsp;·&nbsp; 🔤 {result.get('tokens', 0)} tok"
+        f" &nbsp;·&nbsp; Turn {turn}"
+        f"</span></div>",
         unsafe_allow_html=True,
     )
 
-    sev_v     = sev.get("score", 0)
-    sev_color = RISK_COLOR.get(sev.get("band", "Unknown"), "#6b7280")
-    c2.markdown(
-        f"<div style='font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;"
-        f"letter-spacing:0.6px;margin-bottom:4px;'>Severity</div>"
-        f"<span style='font-size:14px;font-weight:700;color:{sev_color};'>{sev_v}</span>"
-        f"<span style='font-size:11px;color:#475569;'>/100</span>"
-        f"{_score_bar(sev_v, sev_color)}",
-        unsafe_allow_html=True,
-    )
-
-    conf_v = conf.get("score", 0)
-    c3.markdown(
-        f"<div style='font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;"
-        f"letter-spacing:0.6px;margin-bottom:4px;'>Confidence</div>"
-        f"<span style='font-size:14px;font-weight:700;color:#818cf8;'>{conf_v}</span>"
-        f"<span style='font-size:11px;color:#475569;'>/100</span>"
-        f"{_score_bar(conf_v, '#6366f1')}",
-        unsafe_allow_html=True,
-    )
-
-    sess = st.session_state.get("session")
-    turn = sess.turn_count if sess else "—"
-    c4.markdown(
-        f"<div style='font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;"
-        f"letter-spacing:0.6px;margin-bottom:6px;'>Metrics</div>"
-        f"<span style='font-size:12px;color:#64748b;'>"
-        f"⚡ {result.get('latency',0)}s &nbsp;·&nbsp; "
-        f"🔤 {result.get('tokens',0)} tok &nbsp;·&nbsp; "
-        f"Turn {turn}</span>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
-
-    # Citations
+    # ── Single collapsible details section ────────────────────────────────────
     citations = result.get("citations", [])
     cv        = result.get("citation_verification") or {}
-    if citations:
-        with st.expander(
-            f"📌 Citations ({len(citations)})  ·  "
-            f"Groundedness: {cv.get('groundedness', 'N/A')}"
-        ):
-            for c in citations:
-                st.markdown(f'<div class="cite-box">{c}</div>', unsafe_allow_html=True)
+    conflicts = result.get("conflicts", [])
+    has_detail = citations or conflicts or result.get("reasoning") or sev.get("components")
 
-    # Policy conflicts
-    for c in result.get("conflicts", []):
-        st.markdown(
-            f'<div class="conflict-box">'
-            f'⚠️ <strong>[{c["id"]}] {c["name"]}</strong>  —  Severity: {c["severity"]}<br>'
-            f'<code style="font-size:12px;">{c["policy_a"]}</code> '
-            f'↔ <code style="font-size:12px;">{c["policy_b"]}</code><br>'
-            f'<span style="font-size:12.5px;">{c["description"]}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+    if has_detail:
+        cit_label = f"{len(citations)} citation{'s' if len(citations) != 1 else ''}" if citations else ""
+        cfl_label = f"{len(conflicts)} conflict{'s' if len(conflicts) != 1 else ''}" if conflicts else ""
+        badge     = "  ·  ".join(filter(None, [cit_label, cfl_label])) or "details"
+        with st.expander(f"📎 {badge}", expanded=False):
 
-    # Reasoning
-    if result.get("reasoning"):
-        with st.expander("🧠 Reasoning chain"):
-            st.markdown(result["reasoning"])
+            # Citations
+            if citations:
+                st.markdown(
+                    f"**📌 Citations ({len(citations)})**"
+                    f"<span style='font-size:12px;color:#475569;'>"
+                    f"  ·  Groundedness: {cv.get('groundedness', 'N/A')}</span>",
+                    unsafe_allow_html=True,
+                )
+                for c in citations:
+                    st.markdown(f'<div class="cite-box">{c}</div>', unsafe_allow_html=True)
 
-    # Score breakdown
-    if sev.get("components"):
-        with st.expander("📊 Score breakdown"):
-            b1, b2 = st.columns(2, gap="large")
-            b1.markdown("**Severity components**")
-            for k, v in sev["components"].items():
-                b1.markdown(f"- `{k}`: +{v}")
-            b2.markdown("**Confidence components**")
-            for k, v in (conf.get("components") or {}).items():
-                b2.markdown(f"- `{k}`: {v:+d}")
+            # Policy conflicts
+            if conflicts:
+                st.markdown("")
+            for c in conflicts:
+                st.markdown(
+                    f'<div class="conflict-box">'
+                    f'⚠️ <strong>[{c["id"]}] {c["name"]}</strong>  —  Severity: {c["severity"]}<br>'
+                    f'<code style="font-size:12px;">{c["policy_a"]}</code> '
+                    f'↔ <code style="font-size:12px;">{c["policy_b"]}</code><br>'
+                    f'<span style="font-size:12.5px;">{c["description"]}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # Reasoning
+            if result.get("reasoning"):
+                st.markdown("**🧠 Reasoning**")
+                st.markdown(result["reasoning"])
+
+            # Score breakdown with bars
+            if sev.get("components"):
+                st.markdown("**📊 Score breakdown**")
+                b1, b2 = st.columns(2, gap="large")
+                b1.markdown("**Severity**")
+                b1.markdown(_score_bar(sev_v, sev_color), unsafe_allow_html=True)
+                for k, v in sev["components"].items():
+                    b1.markdown(f"- `{k}`: +{v}")
+                b2.markdown("**Confidence**")
+                b2.markdown(_score_bar(conf_v, "#6366f1"), unsafe_allow_html=True)
+                for k, v in (conf.get("components") or {}).items():
+                    b2.markdown(f"- `{k}`: {v:+d}")
 
     if result.get("audit_id"):
         st.caption(f"Audit ID: `{result['audit_id']}`")
