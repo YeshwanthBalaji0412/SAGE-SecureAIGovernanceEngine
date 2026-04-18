@@ -525,18 +525,6 @@ def render_response(result: dict):
                 st.markdown("**🧠 Reasoning**")
                 st.markdown(result["reasoning"])
 
-            # Score breakdown with bars
-            if sev.get("components"):
-                st.markdown("**📊 Score breakdown**")
-                b1, b2 = st.columns(2, gap="large")
-                b1.markdown("**Severity**")
-                b1.markdown(_score_bar(sev_v, sev_color), unsafe_allow_html=True)
-                for k, v in sev["components"].items():
-                    b1.markdown(f"- `{k}`: +{v}")
-                b2.markdown("**Confidence**")
-                b2.markdown(_score_bar(conf_v, "#6366f1"), unsafe_allow_html=True)
-                for k, v in (conf.get("components") or {}).items():
-                    b2.markdown(f"- `{k}`: {v:+d}")
 
     if result.get("audit_id"):
         st.caption(f"Audit ID: `{result['audit_id']}`")
