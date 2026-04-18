@@ -817,13 +817,18 @@ class SAGEPipeline:
 
             # Meta-questions about the document itself — route directly to search
             meta_keywords = [
-                "who does", "who is", "when does", "when is",
+                "who does", "who is", "who are", "who can", "who should",
+                "when does", "when is",
                 "what is the purpose", "what does this policy", "what is this policy",
-                "scope of", "effective date", "applies to", "applicable for",
-                "applicable to", "use this policy", "use this for",
-                "new joinee", "new employee", "new hire", "what can i",
-                "purpose of this", "what topics", "what does it cover",
-                "what is it for", "how do i use",
+                "scope of", "effective date",
+                "applies to", "applied to", "apply to",
+                "applicable for", "applicable to",
+                "use this policy", "use this for", "what is it for", "how do i use",
+                "new joinee", "new employee", "new hire",
+                "what can i", "purpose of this", "what topics", "what does it cover",
+                "covered by", "covered under", "does this cover", "does this apply",
+                "what activities", "what behavior", "what conduct",
+                "what are the", "what is the policy on", "what is the rule",
             ]
             if any(kw in sl for kw in meta_keywords):
                 return ("This is a document-level question. Use search_policy to find the "
