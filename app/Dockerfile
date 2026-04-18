@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install system deps for chromadb / pdfplumber
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev \
+    build-essential libpq-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -20,4 +20,5 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 CMD ["streamlit", "run", "app.py", \
      "--server.port=8501", \
      "--server.headless=true", \
-     "--server.enableCORS=false"]
+     "--server.enableCORS=true", \
+     "--server.enableXsrfProtection=false"]
