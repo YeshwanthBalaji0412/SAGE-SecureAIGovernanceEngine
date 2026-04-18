@@ -22,7 +22,6 @@ from sage.core import (
     SAGEConversationSession,
     SAGEPipeline,
     AuditLogger,
-    FeedbackCollector,
     is_injection,
     sanitize_query,
 )
@@ -307,7 +306,6 @@ def _init():
         "session":             None,
         "chat_history":        [],
         "audit_logger":        AuditLogger(),
-        "feedback_collector":  FeedbackCollector(),
         "show_audit":          False,
         "use_agent":           True,
         "pending_question":    "",
@@ -347,7 +345,7 @@ def _start_new_chat():
 # Exact-match phrases that mean the user wants the session report dashboard.
 # Single words like "report" or "audit" only trigger when the WHOLE query is
 # that word (or a short phrase) — not when they appear inside a policy question.
-_REPORT_EXACT = {"report", "audit", "stats", "statistics", "summary", "feedback"}
+_REPORT_EXACT = {"report", "audit", "stats", "statistics", "summary"}
 _REPORT_PHRASES = {"show report", "session report", "show stats", "show summary",
                    "show audit", "view report", "get report", "my report",
                    "download report", "session stats"}
@@ -558,15 +556,14 @@ def load_pipeline(api_key: str, uploaded_files=None, company_name: str = ""):
         )
 
         st.session_state.update({
-            "pipeline":           pipeline,
-            "session":            SAGEConversationSession(),
-            "chat_history":       [],
-            "corpus_loaded":      True,
-            "company_name":       company_name or "your organization",
-            "org_type":           org_type,
-            "audit_logger":       pipeline.audit_logger,
-            "feedback_collector": pipeline.feedback_collector,
-            "pending_question":   "",
+            "pipeline":         pipeline,
+            "session":          SAGEConversationSession(),
+            "chat_history":     [],
+            "corpus_loaded":    True,
+            "company_name":     company_name or "your organization",
+            "org_type":         org_type,
+            "audit_logger":     pipeline.audit_logger,
+            "pending_question": "",
         })
 
     return len(chunks), len(lookup), "ChromaDB (semantic)" if collection else "Keyword fallback"
@@ -576,7 +573,6 @@ def load_pipeline(api_key: str, uploaded_files=None, company_name: str = ""):
 
 def render_report():
     stats = st.session_state.audit_logger.stats()
-    fb    = st.session_state.feedback_collector.aggregate()
 
     if stats.get("total", 0) == 0:
         st.info("No queries recorded in this session yet.")
@@ -596,17 +592,6 @@ def render_report():
         for i, (k, v) in enumerate(rdb.items()):
             rc[i].metric(f"{icons.get(k,'⚪')} {k}", v)
 
-    if fb.get("total", 0):
-        st.markdown("**Feedback summary**")
-        fc1, fc2, fc3 = st.columns(3)
-        fc1.metric("Responses Rated", fb["total"])
-        fc2.metric("Overall Score",   f"{fb['overall_avg']}/5")
-        fc3.metric("Recommend Rate",  fb["recommend_rate"])
-        for dim, score in fb.get("dim_avgs", {}).items():
-            st.progress(int(score * 20), text=f"{dim.capitalize()}: {score}/5")
-    else:
-        st.caption("No feedback submitted yet.")
-
     with st.expander("📋 Recent audit entries"):
         for e in reversed(st.session_state.audit_logger.recent(10)):
             st.markdown(
@@ -625,7 +610,6 @@ def render_report():
         "organization": st.session_state.get("company_name", ""),
         "org_type":     st.session_state.get("org_type", "generic"),
         "stats":        stats,
-        "feedback":     fb,
         "audit_log":    all_entries,
     }
     _n = _report_render_n[0]
@@ -750,14 +734,15 @@ with st.sidebar:
                             company_name=org["name"],
                         )
                         st.session_state.update({
-                            "pipeline": pipeline, "session": SAGEConversationSession(),
-                            "chat_history": [], "corpus_loaded": True,
-                            "company_name": org["name"],
-                            "org_type":     org_type,
-                            "audit_logger": pipeline.audit_logger,
-                            "feedback_collector": pipeline.feedback_collector,
+                            "pipeline":         pipeline,
+                            "session":          SAGEConversationSession(),
+                            "chat_history":     [],
+                            "corpus_loaded":    True,
+                            "company_name":     org["name"],
+                            "org_type":         org_type,
+                            "audit_logger":     pipeline.audit_logger,
                             "pending_question": "",
-                            "_load_msg": f"✅ {org['name']} loaded",
+                            "_load_msg":        f"✅ {org['name']} loaded",
                         })
                     st.rerun()
                 except Exception as exc:
