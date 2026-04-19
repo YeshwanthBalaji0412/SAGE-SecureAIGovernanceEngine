@@ -133,6 +133,15 @@ INJECTION_PATTERNS = [
     r'as\s+DAN\b',
     r'hypothetically[,\s]+(?:if|what|assume)',
     r'for\s+(?:a\s+)?(?:fictional|creative\s+writing|story|hypothetical)\s+(?:exercise|purpose|scenario)',
+    # ── Social-engineering / authority pretext attacks ────────────────────────
+    # "compliance verification", "structural audit", "security audit" pretexts
+    r'(?:compliance|security|structural|system)\s+(?:verification|audit|assessment|review)\s+(?:purposes?|exercise)',
+    r'for\s+(?:compliance|audit|verification|testing)\s+purposes?\s*[,.]?\s*(?:i\s+need|please|could\s+you)',
+    # asking about the assistant's own methodology / boundary conditions
+    r'(?:methodology|method)\s+(?:this\s+)?(?:assistant|system|ai|model)\s+uses?\s+to\s+(?:evaluate|assess|process|handle)',
+    r'boundary\s+conditions?\s+you\s+apply',
+    r'walk\s+(?:me\s+)?through\s+(?:the\s+)?(?:methodology|process|logic|reasoning)\s+(?:this|your|the)\s+(?:assistant|system|ai|model)',
+    r'how\s+(?:this\s+)?(?:assistant|system|ai)\s+(?:evaluates?|processes?|handles?|assesses?)\s+(?:policy|queries|questions)',
 ]
 _INJECTION_RE = re.compile('|'.join(INJECTION_PATTERNS), re.IGNORECASE)
 
