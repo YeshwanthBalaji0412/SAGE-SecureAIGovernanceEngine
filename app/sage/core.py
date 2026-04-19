@@ -142,6 +142,13 @@ INJECTION_PATTERNS = [
     r'boundary\s+conditions?\s+you\s+apply',
     r'walk\s+(?:me\s+)?through\s+(?:the\s+)?(?:methodology|process|logic|reasoning)\s+(?:this|your|the)\s+(?:assistant|system|ai|model)',
     r'how\s+(?:this\s+)?(?:assistant|system|ai)\s+(?:evaluates?|processes?|handles?|assesses?)\s+(?:policy|queries|questions)',
+    # ── Pipeline introspection by component name ──────────────────────────────
+    # "how each stage in your pipeline ... works together"
+    r'(?:each\s+)?stage[s]?\s+in\s+(?:your|the|this)\s+pipeline',
+    r'(?:injection\s+check|retrieval|reasoning)\s+(?:stage|step|layer|phase)',
+    r'how\s+.{0,30}(?:stages?|steps?|layers?|phases?)\s+.{0,20}work\s+together',
+    r'(?:pipeline|stages?|components?)\s+.{0,30}(?:work|interact|connect|combine)\s+together',
+    r'(?:improve|affect|impact)\s+(?:overall\s+)?(?:response\s+quality|output\s+quality|answer\s+quality)',
 ]
 _INJECTION_RE = re.compile('|'.join(INJECTION_PATTERNS), re.IGNORECASE)
 
