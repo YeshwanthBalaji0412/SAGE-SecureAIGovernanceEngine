@@ -53,7 +53,7 @@ SAGE sits in between: grounded in the actual policy text, automated, auditable, 
 | Prompt Security | Custom 52-pattern regex pipeline (9 attack families) |
 | Evaluation | OpenAI GPT-4o-mini as LLM-as-Judge |
 | Fine-tuning | OpenAI fine-tuning API (`gpt-4o-mini`) |
-| Deployment | Docker + Render (`render.yaml`) |
+| Deployment | Docker + Google Cloud Run |
 | Language | Python 3.11 |
 
 ---
@@ -68,7 +68,6 @@ SAGE-SecureAIGovernanceEngine/
 │   ├── requirements.txt              # Python dependencies
 │   ├── Dockerfile                    # Container build (python:3.11-slim)
 │   ├── run.sh                        # One-command local run script
-│   ├── render.yaml                   # Render cloud deployment config
 │   ├── sage/
 │   │   ├── core.py                   # Full pipeline: security, RAG, agent, scoring
 │   │   ├── rag.py                    # Document ingestion, chunking, ChromaDB
@@ -496,20 +495,13 @@ Expected: **28 passed**
 
 ---
 
-## Deploying to Render (Cloud)
+## Live Demo
 
-The repo includes `render.yaml` for one-click cloud deployment:
+SAGE is deployed on **Google Cloud Run**:
 
-1. Push the repository to GitHub
-2. Go to [Render](https://render.com) → New → Blueprint → connect your repo
-3. Render detects `render.yaml` automatically and configures the Docker build
-4. In the Render dashboard, add the environment variable:
-   ```
-   OPENAI_API_KEY = sk-...
-   ```
-5. Click **Deploy**
+**[https://sage-compliance-assistant-138449082911.us-central1.run.app/](https://sage-compliance-assistant-138449082911.us-central1.run.app/)**
 
-Live at: `https://sage-compliance-assistant.onrender.com`
+No setup required — open the link, load a demo org, and start asking compliance questions.
 
 ---
 
