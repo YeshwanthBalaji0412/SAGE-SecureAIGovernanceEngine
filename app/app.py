@@ -16,6 +16,15 @@ from pathlib import Path
 
 import streamlit as st
 
+# Streamlit Community Cloud ships an sqlite3 too old for chromadb. When the
+# pysqlite3 backport is available (Linux hosts), swap it in before chromadb is
+# imported. No-op locally / in Docker where pysqlite3 isn't installed.
+try:
+    __import__("pysqlite3")
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ImportError:
+    pass
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from sage.core import (
