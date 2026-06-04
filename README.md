@@ -507,9 +507,9 @@ Expected: **28 passed**
 
 ## Live Demo
 
-SAGE is deployed on **Google Cloud Run**:
+SAGE is deployed on **Hugging Face Spaces** (Docker):
 
-**[https://sage-compliance-assistant-138449082911.us-central1.run.app/](https://sage-compliance-assistant-138449082911.us-central1.run.app/)**
+**[https://yeshwanthbalaji-sage-compliance-assistant.hf.space](https://yeshwanthbalaji-sage-compliance-assistant.hf.space)**
 
 No setup required — open the link, load a demo org, and start asking compliance questions.
 
