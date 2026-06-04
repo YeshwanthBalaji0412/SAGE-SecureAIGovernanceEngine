@@ -1,3 +1,13 @@
+---
+title: SAGE Compliance Assistant
+emoji: 🛡️
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 8501
+pinned: false
+---
+
 # SAGE — Secure AI Governance Engine
 
 **An enterprise-grade AI compliance assistant that interprets company policy documents, answers employee questions, detects policy conflicts, and defends against prompt injection attacks.**

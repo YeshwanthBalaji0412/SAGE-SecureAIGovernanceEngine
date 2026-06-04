@@ -4,8 +4,6 @@ langchain>=0.2.0
 langchain-openai>=0.1.8
 langgraph>=0.1.5
 chromadb>=0.5.0
-# Streamlit Community Cloud ships an sqlite3 too old for chromadb; swap in a newer one (Linux hosts only).
-pysqlite3-binary>=0.5.0; platform_system == "Linux"
 pdfplumber>=0.11.0
 tiktoken>=0.7.0
 tabulate>=0.9.0
