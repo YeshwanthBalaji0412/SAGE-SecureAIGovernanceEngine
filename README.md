@@ -567,7 +567,65 @@ a demo and torn down with a single command to stay within a small budget.
 - **ARM64 / Graviton** Fargate — ~20% cheaper and builds natively on Apple Silicon.
 - **`terraform destroy`** returns everything to ~$0; **`desired_count=0`** pauses compute without a full teardown.
 
-Full step-by-step deploy/verify/destroy instructions: **[`docs/AWS_RUNBOOK.md`](docs/AWS_RUNBOOK.md)**.
+### Deploy it yourself — apply → run → destroy
+
+**One-time setup:**
+
+```bash
+# 1. Install tools (macOS)
+brew install awscli hashicorp/tap/terraform      # + Docker Desktop
+aws configure                                    # access key, secret, region: us-east-1
+
+# 2. Provide your values (git-ignored; holds the OpenAI key + alert email)
+cd terraform/aws
+cp terraform.tfvars.example terraform.tfvars     # then edit it
+terraform init
+```
+
+**Bring it UP** (fastest — one command that applies, builds/pushes the image, waits until healthy, and prints the URL):
+
+```bash
+./scripts/demo_up.sh
+```
+
+<details>
+<summary>…or run the steps manually</summary>
+
+```bash
+cd terraform/aws
+terraform apply -auto-approve      # create the infrastructure (~5–10 min)
+cd ../..
+./scripts/build_push_ecr.sh        # build + push image, start the task (~4 min)
+cd terraform/aws
+terraform output -raw app_url      # your public URL
+```
+</details>
+
+**Verify:**
+
+```bash
+cd terraform/aws
+curl -s -o /dev/null -w "%{http_code}\n" "$(terraform output -raw app_url)/_stcore/health"   # 200 = live
+```
+
+**Pause** (stop compute billing without a full teardown):
+
+```bash
+cd terraform/aws
+terraform apply -auto-approve -var="desired_count=0"   # pause
+terraform apply -auto-approve -var="desired_count=1"   # resume
+```
+
+**Take it DOWN** (back to ~$0 — always run this when finished):
+
+```bash
+./scripts/demo_down.sh
+# equivalent to:  cd terraform/aws && terraform destroy -auto-approve
+```
+
+> ⚠️ Docker Desktop must be running before the build step. The full deploy takes
+> ~15–20 min, so bring it up *before* recording. Full details, troubleshooting,
+> and AWS account setup: **[`docs/AWS_RUNBOOK.md`](docs/AWS_RUNBOOK.md)**.
 
 ### GCP v1 → AWS v2
 
