@@ -1,0 +1,48 @@
+# Dockerfile for AWS ECS Fargate (behind an Application Load Balancer).
+#
+# Identical app + model as v1 (OpenAI GPT-4o). Differs from the HF Spaces
+# Dockerfile only in Streamlit flags tuned for an ALB:
+#   - bind 0.0.0.0 so the ALB target group can reach the task
+#   - keep XSRF protection ON (unlike the HF iframe) since the ALB serves the
+#     app at its own root path with sticky sessions
+#   - CORS enabled; WebSocket upgrades pass through the ALB with stickiness
+#
+# The OPENAI_API_KEY is NOT baked in — ECS injects it at runtime from
+# Secrets Manager into the env var the app already reads (app.py).
+FROM python:3.11-slim
+
+# Fargate runs the task; a non-root user is good practice.
+RUN useradd -m -u 1000 appuser
+ENV HOME=/home/appuser \
+    PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    ANONYMIZED_TELEMETRY=False
+
+WORKDIR /home/appuser/app
+
+# System deps for chromadb / pdfplumber.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app/ .
+RUN chown -R appuser:appuser /home/appuser
+
+USER appuser
+
+EXPOSE 8501
+
+# ALB target-group health check hits this path.
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+CMD ["streamlit", "run", "app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true", \
+     "--server.enableCORS=true", \
+     "--server.enableXsrfProtection=true", \
+     "--browser.gatherUsageStats=false"]

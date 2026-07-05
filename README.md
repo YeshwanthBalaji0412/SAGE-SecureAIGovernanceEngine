@@ -63,7 +63,8 @@ SAGE sits in between: grounded in the actual policy text, automated, auditable, 
 | Prompt Security | Custom 52-pattern regex pipeline (9 attack families) |
 | Evaluation | OpenAI GPT-4o-mini as LLM-as-Judge |
 | Fine-tuning | OpenAI fine-tuning API (`gpt-4o-mini`) |
-| Deployment | Docker + Google Cloud Run |
+| Deployment (v1) | Docker + Google Cloud Run / Hugging Face Spaces |
+| Deployment (v2) | AWS: ECS Fargate + ALB + ECR + Secrets Manager + CloudWatch, via Terraform |
 | Language | Python 3.11 |
 
 ---
@@ -512,6 +513,75 @@ SAGE is deployed on **Hugging Face Spaces** (Docker):
 **[https://yeshwanthbalaji-sage-compliance-assistant.hf.space](https://yeshwanthbalaji-sage-compliance-assistant.hf.space)**
 
 No setup required — open the link, load a demo org, and start asking compliance questions.
+
+---
+
+## AWS Deployment (v2)
+
+The same application (same code, same **OpenAI GPT-4o** model) also deploys to
+**AWS** as a second, infrastructure-as-code deployment. This version exists to
+demonstrate a production-style AWS architecture (and as hands-on practice for the
+**AWS Solutions Architect Associate** certification). It is spun up on demand for
+a demo and torn down with a single command to stay within a small budget.
+
+### Architecture
+
+```
+                         Internet
+                            │  HTTP :80
+                     ┌──────▼───────┐
+                     │  ALB (public │  sticky sessions + WebSocket
+                     │   subnets ×2 │
+                     └──────┬───────┘
+              SG: only ALB → task :8501
+                     ┌──────▼──────────────┐
+                     │  ECS Fargate task   │  awslogs ─► CloudWatch
+                     │  (ARM64 / Graviton) │  Streamlit + SAGE + ChromaDB
+                     │  Streamlit :8501    │
+                     └───┬─────────────┬───┘
+          exec role      │             │  OPENAI_API_KEY injected at runtime
+          (pull/logs)    │             ▼
+                         │        Secrets Manager  ──►  OpenAI GPT-4o API (egress via IGW)
+                         ▼
+                        ECR (image registry)
+
+   Cost safety: AWS Budget ($5) + CloudWatch billing alarm + SNS email alerts
+```
+
+### AWS services used
+
+| Service | Role |
+|---|---|
+| **ECS Fargate** | Runs the container (serverless, ARM64/Graviton) |
+| **Application Load Balancer** | Public entry point, health checks, sticky sessions |
+| **ECR** | Private container image registry (scan-on-push) |
+| **VPC / subnets / SGs** | Isolated network; least-privilege security groups (only ALB → task) |
+| **IAM** | Separate execution + task roles; secret access scoped to one ARN |
+| **Secrets Manager** | Stores the OpenAI key, injected into the task — no key in image/git |
+| **CloudWatch** | Logs + ALB-5xx and CPU alarms |
+| **AWS Budgets** | $5 ceiling with 50/80/100% email alerts (cost guardrail) |
+| **Terraform** | All of the above defined as code in [`terraform/aws/`](terraform/aws/) |
+
+### Cost-optimized for a throwaway demo
+- **No NAT Gateway** — task runs in a public subnet with egress via the Internet Gateway (saves ~$32/mo). A `enable_private_networking` variable flips to the SAA-canonical private-subnet + NAT topology.
+- **ARM64 / Graviton** Fargate — ~20% cheaper and builds natively on Apple Silicon.
+- **`terraform destroy`** returns everything to ~$0; **`desired_count=0`** pauses compute without a full teardown.
+
+Full step-by-step deploy/verify/destroy instructions: **[`docs/AWS_RUNBOOK.md`](docs/AWS_RUNBOOK.md)**.
+
+### GCP v1 → AWS v2
+
+| | v1 (GCP / Hugging Face) | v2 (AWS) |
+|---|---|---|
+| Compute | Cloud Run / HF Spaces container | ECS Fargate behind an ALB |
+| Model | OpenAI GPT-4o | **OpenAI GPT-4o (unchanged)** |
+| Secrets | env var / sidebar input | AWS Secrets Manager |
+| Infra definition | `gcloud` / Dockerfile | Terraform (`terraform/aws/`) |
+| Monitoring | platform default | CloudWatch logs + alarms + budget |
+
+The application behavior is identical across both — v2 is a re-platforming, not a
+rewrite. The original version is preserved unchanged at git tag **`v1.0-gcp`** and
+remains live on Hugging Face Spaces as the always-on demo.
 
 ---
 

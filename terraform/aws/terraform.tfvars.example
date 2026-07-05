@@ -1,0 +1,18 @@
+# Copy this file to terraform.tfvars and fill in your values.
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is git-ignored (it holds your secret) — never commit it.
+
+# ── Required ──────────────────────────────────────────────────────────────────
+openai_api_key = "sk-...your-openai-key..."   # stored in Secrets Manager, injected at runtime
+alert_email    = "balaji.y@northeastern.edu"  # confirm the SNS email after apply to get alerts
+
+# ── Optional (sensible defaults already set in variables.tf) ────────────────────
+# aws_region                = "us-east-1"
+# project_name              = "sage"
+# task_cpu                  = 1024      # 1 vCPU
+# task_memory               = 2048      # 2 GB
+# desired_count             = 1         # set 0 to pause Fargate billing without destroying
+# enable_private_networking = false     # true = private subnets + NAT (~$32/mo) for SAA practice
+# allowed_ingress_cidr      = "0.0.0.0/0"   # set "YOUR.IP/32" to lock the demo to just you
+# monthly_budget_usd        = 5
